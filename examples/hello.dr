@@ -1,0 +1,8 @@
+(require std::io)
+
+; (loop for c in '("h" "e" "l" "l" "o" ", " "w" "o" "r" "l" "d" "\n")
+;     do (puts c))
+
+(println "hello!")
+
+; vim:set ft=lisp ts=4 sw=4 et:

@@ -1,0 +1,28 @@
+(require std::io)
+
+(defstruct name [name])
+
+; One way
+(let (persons-name (std::io::read-line))
+  (if (option/is-some persons-name)
+    (let (person (make-name (option/unwrap persons-name)))
+      (println "Hello {}!" (name->name person))
+    )
+    (println "No name given.")
+  )
+)
+
+; Another way
+(let (persons-name (std::io::read-line))
+  (if-let (val persons-name)
+    ;; Some case
+    (let (person (make-name val))
+      (println "Hello {}!" (name->name person))
+    )
+
+    ;; None case
+    (println "No name given.")
+  )
+)
+
+; vim:set ft=lisp ts=4 sw=4 et:
