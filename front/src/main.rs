@@ -4,22 +4,23 @@ use lexpr::{Cons, Value, print::Options};
 const SEXPRS: &str = r###"
 (defenum! option
   (list (Some v) None)
+  ; TODO: Add derives
   (:impl (list
-     (is-some
+     ('is-some
        (lambda (self)
          (match self
            ((Some _) true)
            (None     false))))
-     (is-none
+     ('is-none
        (lambda (self)
          (match self
            ((Some _) false)
            (None     true))))
-     (unwrap
+     ('unwrap
        (lambda (self)
          (match self
            ((Some x) x)
-           (None     (panic "Tried to unwrap None"))))))))
+           (None (panic! "Tried to unwrap None"))))))))
 "###
 .trim_ascii();
 
