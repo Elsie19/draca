@@ -9,34 +9,43 @@
      ('is-some
        (lambda (self)
          (match self
-           ((Some _) true)
-           (None     false))))
+           [(Some _) true]
+           [(None)   false])))
      ('is-none
        (lambda (self)
          (match self
-           ((Some _) false)
-           (None     true))))
+           [(Some _) false]
+           [(None)   true])))
+     ('as-list
+       (lambda (self)
+         (match self
+           [(Some x) '(x)]
+           [(None)   '()])))
      ('unwrap
        (lambda (self)
          (match self
-           ((Some x) x)
-           (None (panic! "Tried to unwrap None"))))))))
+           [(Some x) x]
+           [(None) (panic! "Tried to unwrap None")]))))))
 
 ; Roughly generates
 
 (enum option (list (Some v) None))
 (defun option/is-some (self)
   (match self
-    ((Some _) true)
-    (None false)))
+    [(Some _) true]
+    [(None)   false]))
 (defun option/is-none (self)
   (match self
-    ((Some _) false)
-    (None true)))
+    [(Some _) false]
+    [(None)   true]))
 (defun option/unwrap (self)
   (match self
-    ((Some x) x)
-    (None (panic! "Tried to unwrap None"))))
+    [(Some x) x]
+    [None (panic! "Tried to unwrap None")]))
+(defun option/as-list (self)
+  (match self
+    [(Some x) '(x)]
+    [(None)   '()))]
 
 ; One way
 (let (persons-name (std::io::read-line))
