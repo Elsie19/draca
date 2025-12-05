@@ -1,20 +1,65 @@
 (require std::io)
 
+(defgeneric add (a b))
+(defmethod add ((a number) (b number))
+  (+ a b))
+(defmethod add ((a vector) (b number))
+  (map 'vector (lambda (n) (+ n b)) a))
+(defmethod add ((a vector) (b vector))
+  (map 'vector #'+ a b))
+(defmethod add ((a string) (b string))
+  (concatenate 'string a b))
+
 (defstruct name [name])
+
+(defenum! option
+  (list (Some v) None)
+  (:impl (list
+     (is-some
+       (lambda (self)
+         (match self
+           ((Some _) true)
+           (None     false))))
+     (is-none
+       (lambda (self)
+         (match self
+           ((Some _) false)
+           (None     true))))
+     (unwrap
+       (lambda (self)
+         (match self
+           ((Some x) x)
+           (None     (panic! "Tried to unwrap None"))))))))
+
+; Roughly generates
+
+(enum option (list (Some v) None))
+(defun option/is-some (self)
+  (match self
+    ((Some _) true)
+    (None false)))
+(defun option/is-none (self)
+  (match self
+    ((Some _) false)
+    (None true)))
+(defun option/unwrap (self)
+  (match self
+    ((Some x) x)
+    (None (panic! "Tried to unwrap None"))))
 
 ; One way
 (let (persons-name (std::io::read-line))
   (if (option/is-some persons-name)
     (let (person (make-name (option/unwrap persons-name)))
-      (println "Hello {}!" (name->name person))
+      (println! "Hello {}!" (name->name person))
     )
-    (println "No name given.")
+    (println! "No name given.")
   )
 )
 
 ; Another way
 (let (persons-name (std::io::read-line))
-  (if-let (val persons-name)
+  (if-let (Some val) persons-name
     ;; Some case
     (let (person (make-name val))
       (println "Hello {}!" (name->name person))

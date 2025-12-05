@@ -2,17 +2,24 @@ use interp::interp_sexpr::eval;
 use lexpr::{Cons, Value, print::Options};
 
 const SEXPRS: &str = r###"
-(let (persons-name (std::io::read-line))
-  (if-let (val persons-name)
-    ;; Some case
-    (let (person (make-name val))
-      (println "Hello {}!" (name->name person))
-    )
-
-    ;; None case
-    (println "No name given.")
-  )
-)
+(defenum! option
+  (list (Some v) None)
+  (:impl (list
+     (is-some
+       (lambda (self)
+         (match self
+           ((Some _) true)
+           (None     false))))
+     (is-none
+       (lambda (self)
+         (match self
+           ((Some _) false)
+           (None     true))))
+     (unwrap
+       (lambda (self)
+         (match self
+           ((Some x) x)
+           (None     (panic "Tried to unwrap None"))))))))
 "###
 .trim_ascii();
 
