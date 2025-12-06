@@ -31,21 +31,29 @@
 
 (enum option (list (Some v) None))
 (defun option/is-some (self)
-  (match self
-    [(Some _) true]
-    [(None)   false]))
+  (if (option? self)
+    (match self
+      [(Some _) true]
+      [(None)   false])
+    (panic! "option/is-some: expected option, got...")))
 (defun option/is-none (self)
-  (match self
-    [(Some _) false]
-    [(None)   true]))
+  (if (option? self)
+    (match self
+      [(Some _) false]
+      [(None)   true])
+    (panic! "option/is-none: expected option, got...")))
 (defun option/unwrap (self)
-  (match self
-    [(Some x) x]
-    [None (panic! "Tried to unwrap None")]))
+  (if (option? self)
+    (match self
+      [(Some x) x]
+      [None (panic! "Tried to unwrap None")])
+    (panic! "option/unwrap: expected option, got...")))
 (defun option/as-list (self)
-  (match self
-    [(Some x) '(x)]
-    [(None)   '()))]
+  (if (option? self)
+    (match self
+      [(Some x) '(x)]
+      [(None)   '()])
+    (panic! "option/as-list: expected option, got...")))
 
 ; One way
 (let (persons-name (std::io::read-line))
