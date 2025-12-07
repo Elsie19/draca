@@ -70,8 +70,14 @@ where
 
 impl Display for Namespace {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        for frag in &self.frags {
-            write!(f, "{frag}::")?;
+        let mut iter = self.frags.iter().peekable();
+
+        while let Some(frag) = iter.next() {
+            if iter.peek().is_none() {
+                write!(f, "{frag}")?;
+            } else {
+                write!(f, "{frag}::")?;
+            }
         }
         Ok(())
     }
@@ -140,6 +146,10 @@ impl Environment {
             contents: BTreeMap::new(),
             in_scope: vec![],
         }
+    }
+
+    pub fn scopes(&self) -> &[Namespace] {
+        &self.in_scope
     }
 
     pub fn with_scope(mut self, ns: Namespace) -> Self {

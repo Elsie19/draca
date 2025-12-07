@@ -1,7 +1,7 @@
 use std::fs;
 
 use crate::{
-    env::{Environment, NamespaceItem},
+    env::{Environment, Namespace, NamespaceItem},
     parser::{Expression, Procedure, parse},
 };
 
@@ -38,9 +38,11 @@ fn eval_list(list: &[Expression], env: &mut Environment) -> Result<Expression, S
         match s.as_str() {
             "define" => eval_define(list, env),
             "define/in-namespace" => eval_define_namespace(list, env),
-            "symbol-namespace" => eval_symbol_namespace(list, env),
+            "namespace/symbol" => eval_symbol_namespace(list, env),
+            "namespace/as-list" => eval_symbol_namespace_as_list(list, env),
             "quote" => eval_quote(list, env),
             "eval-file" => eval_file(list, env),
+            "require" => eval_require(list, env),
             "if" => eval_if(list, env),
             _ => {
                 if let Some(exp) = env.get(s) {
@@ -179,8 +181,37 @@ fn eval_symbol_namespace(list: &[Expression], env: &mut Environment) -> Result<E
     }
 }
 
+fn eval_symbol_namespace_as_list(
+    _list: &[Expression],
+    env: &mut Environment,
+) -> Result<Expression, String> {
+    Ok(Expression::List(
+        env.scopes()
+            .iter()
+            .map(|n| Expression::Symbol(n.to_string()))
+            .collect(),
+    ))
+}
+
 fn eval_quote(list: &[Expression], _env: &mut Environment) -> Result<Expression, String> {
     Ok(list[1].clone())
+}
+
+fn eval_require(list: &[Expression], env: &mut Environment) -> Result<Expression, String> {
+    if list.len() != 2 {
+        return Err("`require` requires at least 1 argument".into());
+    }
+
+    match list {
+        [_, path] => match path {
+            Expression::Symbol(sym) => {
+                env.add_scope(Namespace::from_str(sym));
+                Ok(Expression::Bool(true))
+            }
+            _ => Err("Expected symbol".into()),
+        },
+        _ => unreachable!("We checked above"),
+    }
 }
 
 fn eval_file(list: &[Expression], env: &mut Environment) -> Result<Expression, String> {
