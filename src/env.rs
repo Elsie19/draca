@@ -213,7 +213,7 @@ impl Environment {
     }
 
     pub fn cmp_plugin(mut self) -> Self {
-        self.in_scope.extend([["std", "cmp"].into()]);
+        self.add_scope(["std", "cmp"].into());
 
         env_insert![self =>
             ("std::cmp::=",  fn => stdlib::cmp::eq),
@@ -228,16 +228,18 @@ impl Environment {
     }
 
     pub fn math_plugin(mut self) -> Self {
-        self.in_scope
-            .extend([["std", "math"].into(), ["std", "math", "consts"].into()]);
+        self.add_scope(["std", "math"].into());
+        self.add_scope(["std", "math", "consts"].into());
 
         env_insert![self =>
-            ("std::math::+", fn => stdlib::math::add),
-            ("std::math::-", fn => stdlib::math::sub),
-            ("std::math::*", fn => stdlib::math::mul),
-            ("std::math::/", fn => stdlib::math::div),
+            ("std::math::+",   fn => stdlib::math::add),
+            ("std::math::-",   fn => stdlib::math::sub),
+            ("std::math::*",   fn => stdlib::math::mul),
+            ("std::math::/",   fn => stdlib::math::div),
+            ("std::math::rem", fn => stdlib::math::rem),
+            ("std::math::pow", fn => stdlib::math::pow),
             ("std::math::consts::pi", const => Expression::Number(PI)),
-            ("std::math::consts::e", const => Expression::Number(E)),
+            ("std::math::consts::e",  const => Expression::Number(E)),
         ];
 
         self
