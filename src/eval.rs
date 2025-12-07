@@ -1,5 +1,5 @@
 use crate::{
-    env::{Environment, Namespace, NamespaceItem},
+    env::{Environment, NamespaceItem},
     parser::{Expression, Procedure, parse},
 };
 
@@ -19,14 +19,12 @@ pub fn eval(program: &str, env: &mut Environment) -> Result<Expression, String> 
 
 fn eval_expr(expr: Expression, env: &mut Environment) -> Result<Expression, String> {
     match expr {
-        Expression::Bool(_) => Ok(expr),
+        Expression::Bool(_) | Expression::Number(_) | Expression::Func(_) => Ok(expr),
         Expression::Symbol(s) => env
             .get(&s)
             .cloned()
-            .ok_or_else(|| format!("Undefined symbol: {}", s)),
-        Expression::Number(_) => Ok(expr),
+            .ok_or_else(|| format!("Undefined symbol: {s}")),
         Expression::List(list) => eval_list(&list, env),
-        Expression::Func(_) => Ok(expr),
         Expression::Function(_) => Err("Unexpected function definition".into()),
     }
 }
@@ -64,16 +62,11 @@ fn eval_list(list: &[Expression], env: &mut Environment) -> Result<Expression, S
                             let mut local_env = proc.env.clone();
 
                             // Insert the function name into the new environment
-                            local_env
-                                .insert(NamespaceItem::in_namespace(["local"], s), exp.clone());
+                            local_env.insert(NamespaceItem::from_str(s), exp.clone());
 
                             for (param, arg) in proc.params.iter().zip(args?) {
                                 if let Expression::Symbol(param_name) = param {
-                                    // local_env.insert(param_name.clone(), arg);
-                                    local_env.insert(
-                                        NamespaceItem::in_namespace(["local"], param_name.clone()),
-                                        arg,
-                                    );
+                                    local_env.insert(NamespaceItem::from_str(param_name), arg);
                                 } else {
                                     return Err("Invalid parameter name".into());
                                 }
@@ -87,14 +80,15 @@ fn eval_list(list: &[Expression], env: &mut Environment) -> Result<Expression, S
 
                             Ok(result)
                         }
-                        _ => Err(format!("Undefined function: {}", s)),
+                        _ => Err(format!("Undefined function: {s}")),
                     }
                 } else {
-                    Err(format!("Undefined function: {}", s))
+                    Err(format!("Undefined function: {s}"))
                 }
             }
         }
     } else {
+        eprintln!("{:?}", first);
         Err("Expected a symbol".into())
     }
 }
@@ -117,20 +111,14 @@ fn eval_define(list: &[Expression], env: &mut Environment) -> Result<Expression,
 
             let function = Expression::Function(proc);
 
-            env.insert(
-                NamespaceItem::in_namespace(["local"], func_name.clone()),
-                function,
-            );
+            env.insert(NamespaceItem::from_str(func_name), function);
             Ok(Expression::Symbol(func_name.clone()))
         } else {
             Err("Invalid define syntax".into())
         }
     } else if let Expression::Symbol(var_name) = list.get(1).unwrap() {
         let value = eval_expr(list[2].clone(), env)?;
-        env.insert(
-            NamespaceItem::in_namespace(["local"], var_name.clone()),
-            value.clone(),
-        );
+        env.insert(NamespaceItem::from_str(var_name), value.clone());
         Ok(Expression::Symbol(var_name.clone()))
     } else {
         Err("Invalid define syntax".into())
@@ -155,14 +143,14 @@ fn eval_define_namespace(list: &[Expression], env: &mut Environment) -> Result<E
 
             let function = Expression::Function(proc);
 
-            env.insert(NamespaceItem::from_string(func_name.clone()), function);
+            env.insert(NamespaceItem::from_str(func_name), function);
             Ok(Expression::Symbol(func_name.clone()))
         } else {
             Err("Invalid define syntax".into())
         }
     } else if let Expression::Symbol(var_name) = list.get(1).unwrap() {
         let value = eval_expr(list[2].clone(), env)?;
-        env.insert(NamespaceItem::from_string(var_name.clone()), value.clone());
+        env.insert(NamespaceItem::from_str(var_name), value.clone());
         Ok(Expression::Symbol(var_name.clone()))
     } else {
         Err("Invalid define syntax".into())
@@ -175,8 +163,7 @@ fn eval_symbol_namespace(list: &[Expression], env: &mut Environment) -> Result<E
     if let Expression::Symbol(sym) = expr {
         return Ok(env
             .get_namespace_str(sym)
-            .map(Expression::Symbol)
-            .unwrap_or(Expression::Bool(false)));
+            .map_or(Expression::Bool(false), Expression::Symbol));
     }
 
     let evaled = eval_expr(expr.clone(), env)?;
@@ -184,8 +171,7 @@ fn eval_symbol_namespace(list: &[Expression], env: &mut Environment) -> Result<E
     match evaled {
         Expression::Symbol(sym) => Ok(env
             .get_namespace_str(&sym)
-            .map(Expression::Symbol)
-            .unwrap_or(Expression::Bool(false))),
+            .map_or(Expression::Bool(false), Expression::Symbol)),
         _ => Ok(Expression::Bool(false)),
     }
 }

@@ -21,7 +21,7 @@ impl Display for Token {
 
 impl Token {
     pub fn tokenize(expr: &str) -> Result<Vec<Self>, String> {
-        let expr = expr.replace("(", " ( ").replace(")", " ) ");
+        let expr = expr.replace('(', " ( ").replace(')', " ) ");
 
         let words = expr.split_whitespace();
 

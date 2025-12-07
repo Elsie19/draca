@@ -2,7 +2,7 @@ use std::fmt::Display;
 
 use crate::{env::Environment, lexer::Token};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum Expression {
     Bool(bool),
     Number(f64),
@@ -19,16 +19,15 @@ impl Display for Expression {
             Expression::Number(n) => write!(f, "{n}"),
             Expression::Symbol(s) => write!(f, "{s}"),
             Expression::List(list) => {
-                let formatted_list: Vec<_> = list.iter().map(|exp| format!("{}", exp)).collect();
+                let formatted_list: Vec<_> = list.iter().map(ToString::to_string).collect();
                 write!(f, "({})", formatted_list.join(" "))
             }
-            Expression::Func(_) => write!(f, "<function>"),
-            Expression::Function(_) => write!(f, "<function>"),
+            Expression::Func(_) | Self::Function(_) => write!(f, "<function>"),
         }
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct Procedure {
     pub params: Vec<Expression>,
     pub body: Vec<Expression>,
@@ -36,10 +35,7 @@ pub struct Procedure {
 }
 
 pub fn parse(input: &str) -> Result<Expression, String> {
-    let token_result = match Token::tokenize(input) {
-        Ok(val) => val,
-        Err(err) => return Err(format!("{}", err)),
-    };
+    let token_result = Token::tokenize(input)?;
 
     let mut tokens = token_result.into_iter().rev().collect();
 
@@ -58,7 +54,7 @@ fn parse_token_list(tokens: &mut Vec<Token>) -> Result<Expression, String> {
     while !tokens.is_empty() {
         let token = tokens.pop();
 
-        if token == None {
+        if token.is_none() {
             return Err("Error: Did not find enough tokens".to_string());
         }
 

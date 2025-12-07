@@ -1,11 +1,31 @@
-use std::collections::HashMap;
-use std::f64::consts::PI;
+use std::collections::BTreeMap;
+use std::f64::consts::{E, PI};
 use std::fmt::Display;
 
 use crate::parser::Expression;
 use crate::stdlib;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+macro_rules! env_insert {
+    ($env:expr => $($entry:tt),* $(,)?) => {
+        $(
+            env_insert!(@one $env, $entry);
+        )*
+    };
+    (@one $env:expr, ($name:expr, fn => $run:path)) => {
+        $env.insert(
+            $name,
+            Expression::Func(|args: &[Expression]| match $run(args) {
+                Ok(expr) => expr,
+                Err(e) => panic!("{e}"),
+            }),
+        );
+    };
+    (@one $env:expr, ($name:expr, const => $val:expr)) => {
+        $env.insert($name, $val);
+    };
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Namespace {
     frags: Vec<String>,
 }
@@ -30,7 +50,7 @@ impl Namespace {
         }
     }
 
-    pub fn from_string(value: String) -> Self {
+    pub fn from_str(value: &str) -> Self {
         let frags = value.split("::").map(ToString::to_string).collect();
         Self { frags }
     }
@@ -57,7 +77,7 @@ impl Display for Namespace {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct NamespaceItem {
     frags: Namespace,
     target: String,
@@ -74,7 +94,7 @@ impl From<&str> for NamespaceItem {
                     .map(ToString::to_string)
                     .collect::<Vec<_>>()
                     .into(),
-                target.to_string(),
+                (*target).to_string(),
             ),
             _ => unreachable!("oops"),
         };
@@ -84,8 +104,8 @@ impl From<&str> for NamespaceItem {
 }
 
 impl NamespaceItem {
-    pub fn from_string(value: String) -> Self {
-        Self::from(value.as_str())
+    pub fn from_str(value: &str) -> Self {
+        Self::from(value)
     }
 
     pub fn in_namespace(frags: impl Into<Namespace>, target: impl Into<String>) -> Self {
@@ -108,16 +128,16 @@ impl PartialEq<String> for NamespaceItem {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub struct Environment {
-    contents: HashMap<NamespaceItem, Expression>,
+    contents: BTreeMap<NamespaceItem, Expression>,
     in_scope: Vec<Namespace>,
 }
 
 impl Environment {
-    fn empty() -> Self {
+    pub fn empty() -> Self {
         Self {
-            contents: HashMap::new(),
+            contents: BTreeMap::new(),
             in_scope: vec![],
         }
     }
@@ -182,58 +202,38 @@ impl Environment {
         None
     }
 
-    pub fn math_std_env() -> Self {
-        let mut env = Self::empty();
+    pub fn cmp_plugin(mut self) -> Self {
+        self.in_scope.extend([["std", "cmp"].into()]);
 
-        env.in_scope = vec![
-            ["std", "math"].into(),
-            ["std", "cmp"].into(),
-            ["std", "math", "consts"].into(),
-            ["local"].into(),
+        env_insert![self =>
+            ("std::cmp::=",  fn => stdlib::cmp::eq),
+            ("std::cmp::/=",  fn => stdlib::cmp::ne),
+            ("std::cmp::>",  fn => stdlib::cmp::gt),
+            ("std::cmp::<",  fn => stdlib::cmp::lt),
+            ("std::cmp::>=",  fn => stdlib::cmp::ge),
+            ("std::cmp::<=",  fn => stdlib::cmp::le),
         ];
 
-        env.insert(
-            "std::math::+",
-            Expression::Func(|args: &[Expression]| match stdlib::math::add(args) {
-                Ok(expr) => expr,
-                Err(e) => panic!("{e}"),
-            }),
-        );
+        self
+    }
 
-        env.insert(
-            "std::math::-",
-            Expression::Func(|args: &[Expression]| match stdlib::math::sub(args) {
-                Ok(expr) => expr,
-                Err(e) => panic!("{e}"),
-            }),
-        );
+    pub fn math_plugin(mut self) -> Self {
+        self.in_scope
+            .extend([["std", "math"].into(), ["std", "math", "consts"].into()]);
 
-        env.insert(
-            "std::math::*",
-            Expression::Func(|args: &[Expression]| match stdlib::math::mul(args) {
-                Ok(expr) => expr,
-                Err(e) => panic!("{e}"),
-            }),
-        );
+        env_insert![self =>
+            ("std::math::+", fn => stdlib::math::add),
+            ("std::math::-", fn => stdlib::math::sub),
+            ("std::math::*", fn => stdlib::math::mul),
+            ("std::math::/", fn => stdlib::math::div),
+            ("std::math::consts::pi", const => Expression::Number(PI)),
+            ("std::math::consts::e", const => Expression::Number(E)),
+        ];
 
-        env.insert(
-            "std::math::/",
-            Expression::Func(|args: &[Expression]| match stdlib::math::div(args) {
-                Ok(expr) => expr,
-                Err(e) => panic!("{e}"),
-            }),
-        );
+        self
+    }
 
-        env.insert(
-            "std::cmp::=",
-            Expression::Func(|args: &[Expression]| match stdlib::cmp::eq(args) {
-                Ok(expr) => expr,
-                Err(e) => panic!("{e}"),
-            }),
-        );
-
-        env.insert("std::math::consts::pi", Expression::Number(PI));
-
-        env
+    pub fn build(self) -> Self {
+        self
     }
 }
