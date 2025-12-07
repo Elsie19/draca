@@ -1,6 +1,8 @@
+// Uses <https://github.com/chrischiedo/rustyscm> as a base.
+
 use std::io::{self, Write};
 
-use crate::{env::Environment, eval::eval, lexer::Token};
+use crate::{env::Environment, eval::eval};
 
 mod env;
 mod eval;
