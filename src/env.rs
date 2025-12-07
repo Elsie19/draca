@@ -50,6 +50,14 @@ impl Environment {
             }),
         );
 
+        env.insert(
+            "=".to_string(),
+            Expression::Func(|args: &[Expression]| match stdlib::cmp::eq(args) {
+                Ok(expr) => expr,
+                Err(e) => panic!("{e}"),
+            }),
+        );
+
         env
     }
 
