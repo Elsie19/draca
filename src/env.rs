@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::f64::consts::PI;
 
 use crate::parser::Expression;
 use crate::stdlib;
@@ -9,14 +10,14 @@ pub struct Environment {
 }
 
 impl Environment {
-    fn new() -> Self {
+    fn empty() -> Self {
         Self {
             contents: HashMap::new(),
         }
     }
 
     pub fn math_std_env() -> Self {
-        let mut env = Self::new();
+        let mut env = Self::empty();
 
         env.insert(
             "+".to_string(),
@@ -57,6 +58,8 @@ impl Environment {
                 Err(e) => panic!("{e}"),
             }),
         );
+
+        env.insert("pi".to_string(), Expression::Number(PI));
 
         env
     }
