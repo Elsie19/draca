@@ -1,3 +1,5 @@
+use std::fs;
+
 use crate::{
     env::{Environment, NamespaceItem},
     parser::{Expression, Procedure, parse},
@@ -38,6 +40,7 @@ fn eval_list(list: &[Expression], env: &mut Environment) -> Result<Expression, S
             "define/in-namespace" => eval_define_namespace(list, env),
             "symbol-namespace" => eval_symbol_namespace(list, env),
             "quote" => eval_quote(list, env),
+            "eval-file" => eval_file(list, env),
             "if" => eval_if(list, env),
             _ => {
                 if let Some(exp) = env.get(s) {
@@ -180,9 +183,27 @@ fn eval_quote(list: &[Expression], _env: &mut Environment) -> Result<Expression,
     Ok(list[1].clone())
 }
 
+fn eval_file(list: &[Expression], env: &mut Environment) -> Result<Expression, String> {
+    if list.len() != 2 {
+        return Err("`eval-file` requires at least 1 argument".into());
+    }
+
+    match list {
+        [_, path] => {
+            if let Expression::Symbol(path) = path {
+                let contents = fs::read_to_string(path).unwrap_or(String::from("()"));
+                eval(&contents, env)
+            } else {
+                Err("eval-files requires a symbol".into())
+            }
+        }
+        _ => unreachable!("We checked above"),
+    }
+}
+
 fn eval_if(list: &[Expression], env: &mut Environment) -> Result<Expression, String> {
     if list.len() < 4 {
-        return Err("'if' requires at least three arguments".into());
+        return Err("`if` requires at least three arguments".into());
     }
 
     let condition = eval_expr(list[1].clone(), env)?;
