@@ -7,11 +7,14 @@ macro_rules! impl_cmp_ops {
         $(
             pub fn $name(args: &[Expression]) -> Ret {
                 if args.len() != 2 {
-                    return Err(format!("`{}` requires two arguments", stringify!($name)));
+                    return Err(format!("`{}` requires two arguments", stringify!($draca)));
                 }
 
                 match args {
-                    [first, second] => Ok(Expression::Bool(first.$name(second))),
+                    [first, second] => {
+                        println!("{first} {} {second} = {}", stringify!($draca), first.$name(second));
+                        Ok(Expression::Bool(first.$name(second)))
+                    },
                     _ => unreachable!("We checked above"),
                 }
             }

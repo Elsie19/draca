@@ -22,7 +22,10 @@ impl Display for Expression {
                 let formatted_list: Vec<_> = list.iter().map(ToString::to_string).collect();
                 write!(f, "({})", formatted_list.join(" "))
             }
-            Expression::Func(_) | Self::Function(_) => write!(f, "<function>"),
+            Expression::Func(_) => write!(f, "<function>"),
+            Self::Function(func) => {
+                write!(f, "<fn>({}): {}", func.params.iter().map(ToString::to_string).collect::<Vec<_>>().join(", "), func.body.iter().map(ToString::to_string).collect::<Vec<_>>().join("\n"))
+            }
         }
     }
 }

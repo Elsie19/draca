@@ -43,6 +43,7 @@ fn eval_list(list: &[Expression], env: &mut Environment) -> Result<Expression, S
             "quote" => eval_quote(list, env),
             "eval-file" => eval_file(list, env),
             "require" => eval_require(list, env),
+            "deconst-fn" => eval_deconst_fn(list, env),
             "if" => eval_if(list, env),
             _ => {
                 if let Some(exp) = env.get(s) {
@@ -214,6 +215,29 @@ fn eval_require(list: &[Expression], env: &mut Environment) -> Result<Expression
     }
 }
 
+fn eval_deconst_fn(list: &[Expression], env: &mut Environment) -> Result<Expression, String> {
+    if list.len() != 2 {
+        return Err("`deconst-fn` requires at least 1 argument".into());
+    }
+
+    match list {
+        [_, fn_] => {
+            if let Expression::Symbol(fn_) = fn_ {
+                match env.get(fn_) {
+                    Some(got) => {
+                        println!("{}", got);
+                        Ok(Expression::Bool(true))
+                    }
+                    None => Err("Could not find symbol".into()),
+                }
+            } else {
+                Err("`deconst-fn` requires a symbol".into())
+            }
+        }
+        _ => unreachable!("We checked above"),
+    }
+}
+
 fn eval_file(list: &[Expression], env: &mut Environment) -> Result<Expression, String> {
     if list.len() != 2 {
         return Err("`eval-file` requires at least 1 argument".into());
@@ -237,11 +261,12 @@ fn eval_if(list: &[Expression], env: &mut Environment) -> Result<Expression, Str
         return Err("`if` requires at least three arguments".into());
     }
 
-    let condition = eval_expr(list[1].clone(), env)?;
-
-    match condition {
-        Expression::Bool(true) => eval_expr(list[2].clone(), env),
-        Expression::Bool(false) => eval_expr(list[3].clone(), env),
-        _ => Err("Invalid condition in if expression".into()),
+    match list {
+        [_, condition, then, else_] => match eval_expr(condition.clone(), env)? {
+            Expression::Bool(true) => eval_expr(then.clone(), env),
+            Expression::Bool(false) => eval_expr(else_.clone(), env),
+            _ => Err("Invalid condition in if expression".into()),
+        },
+        _ => unreachable!("Checked above"),
     }
 }
