@@ -1,5 +1,5 @@
 use crate::{
-    env::Environment,
+    env::{Environment, NamespaceItem},
     parser::{Expression, Procedure, parse},
 };
 
@@ -36,13 +36,14 @@ fn eval_list(list: &[Expression], env: &mut Environment) -> Result<Expression, S
 
     if let Expression::Symbol(s) = first {
         match s.as_str() {
-            "define" => eval_define(&list, env),
-            "if" => eval_if(&list, env),
+            "define" => eval_define(list, env),
+            "symbol-namespace" => eval_symbol_namespace(list, env),
+            "if" => eval_if(list, env),
             _ => {
                 if let Some(exp) = env.get(s) {
                     match exp {
                         Expression::Func(f) => {
-                            let function = f.clone();
+                            let function = *f;
                             let args: Result<Vec<Expression>, String> = list[1..]
                                 .iter()
                                 .map(|x| eval_expr(x.clone(), env))
@@ -61,11 +62,16 @@ fn eval_list(list: &[Expression], env: &mut Environment) -> Result<Expression, S
                             let mut local_env = proc.env.clone();
 
                             // Insert the function name into the new environment
-                            local_env.insert(s.clone(), exp.clone());
+                            local_env
+                                .insert(NamespaceItem::in_namespace(["local"], s), exp.clone());
 
                             for (param, arg) in proc.params.iter().zip(args?) {
                                 if let Expression::Symbol(param_name) = param {
-                                    local_env.insert(param_name.clone(), arg);
+                                    // local_env.insert(param_name.clone(), arg);
+                                    local_env.insert(
+                                        NamespaceItem::in_namespace(["local"], param_name.clone()),
+                                        arg,
+                                    );
                                 } else {
                                     return Err("Invalid parameter name".into());
                                 }
@@ -97,7 +103,7 @@ fn eval_define(list: &[Expression], env: &mut Environment) -> Result<Expression,
     }
 
     if let Expression::List(func) = list.get(1).unwrap() {
-        if let Some(Expression::Symbol(func_name)) = func.get(0) {
+        if let Some(Expression::Symbol(func_name)) = func.first() {
             let params = func[1..].to_vec();
             let body = list.get(2..).ok_or("Invalid define syntax")?.to_vec();
 
@@ -109,17 +115,39 @@ fn eval_define(list: &[Expression], env: &mut Environment) -> Result<Expression,
 
             let function = Expression::Function(proc);
 
-            env.insert(func_name.clone(), function);
+            env.insert(
+                NamespaceItem::in_namespace(["local"], func_name.clone()),
+                function,
+            );
             Ok(Expression::Symbol(func_name.clone()))
         } else {
             Err("Invalid define syntax".into())
         }
     } else if let Expression::Symbol(var_name) = list.get(1).unwrap() {
         let value = eval_expr(list[2].clone(), env)?;
-        env.insert(var_name.clone(), value.clone());
-        return Ok(Expression::Symbol(var_name.clone()));
+        env.insert(
+            NamespaceItem::in_namespace(["local"], var_name.clone()),
+            value.clone(),
+        );
+        Ok(Expression::Symbol(var_name.clone()))
     } else {
-        return Err("Invalid define syntax".into());
+        Err("Invalid define syntax".into())
+    }
+}
+
+fn eval_symbol_namespace(list: &[Expression], env: &mut Environment) -> Result<Expression, String> {
+    match &list[1..] {
+        [item] => {
+            if let Expression::Symbol(s) = item {
+                match env.get_namespace_str(s) {
+                    Some(s) => Ok(Expression::Symbol(s)),
+                    None => Ok(Expression::Bool(false)),
+                }
+            } else {
+                Err("Value isn't a symbol".into())
+            }
+        }
+        _ => Err("`symbol-namespace` requires one argument".into()),
     }
 }
 
