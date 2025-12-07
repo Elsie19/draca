@@ -1,5 +1,5 @@
 use crate::{
-    env::{Environment, NamespaceItem},
+    env::{Environment, Namespace, NamespaceItem},
     parser::{Expression, Procedure, parse},
 };
 
@@ -37,7 +37,9 @@ fn eval_list(list: &[Expression], env: &mut Environment) -> Result<Expression, S
     if let Expression::Symbol(s) = first {
         match s.as_str() {
             "define" => eval_define(list, env),
+            "define/in-namespace" => eval_define_namespace(list, env),
             "symbol-namespace" => eval_symbol_namespace(list, env),
+            "quote" => eval_quote(list, env),
             "if" => eval_if(list, env),
             _ => {
                 if let Some(exp) = env.get(s) {
@@ -135,20 +137,61 @@ fn eval_define(list: &[Expression], env: &mut Environment) -> Result<Expression,
     }
 }
 
-fn eval_symbol_namespace(list: &[Expression], env: &mut Environment) -> Result<Expression, String> {
-    match &list[1..] {
-        [item] => {
-            if let Expression::Symbol(s) = item {
-                match env.get_namespace_str(s) {
-                    Some(s) => Ok(Expression::Symbol(s)),
-                    None => Ok(Expression::Bool(false)),
-                }
-            } else {
-                Err("Value isn't a symbol".into())
-            }
-        }
-        _ => Err("`symbol-namespace` requires one argument".into()),
+fn eval_define_namespace(list: &[Expression], env: &mut Environment) -> Result<Expression, String> {
+    if list.len() < 3 {
+        return Err("`define/in-namespace` requires at least two arguments".into());
     }
+
+    if let Expression::List(func) = list.get(1).unwrap() {
+        if let Some(Expression::Symbol(func_name)) = func.first() {
+            let params = func[1..].to_vec();
+            let body = list.get(2..).ok_or("Invalid define syntax")?.to_vec();
+
+            let proc = Procedure {
+                params,
+                body,
+                env: env.clone(),
+            };
+
+            let function = Expression::Function(proc);
+
+            env.insert(NamespaceItem::from_string(func_name.clone()), function);
+            Ok(Expression::Symbol(func_name.clone()))
+        } else {
+            Err("Invalid define syntax".into())
+        }
+    } else if let Expression::Symbol(var_name) = list.get(1).unwrap() {
+        let value = eval_expr(list[2].clone(), env)?;
+        env.insert(NamespaceItem::from_string(var_name.clone()), value.clone());
+        Ok(Expression::Symbol(var_name.clone()))
+    } else {
+        Err("Invalid define syntax".into())
+    }
+}
+
+fn eval_symbol_namespace(list: &[Expression], env: &mut Environment) -> Result<Expression, String> {
+    let expr = &list[1];
+
+    if let Expression::Symbol(sym) = expr {
+        return Ok(env
+            .get_namespace_str(sym)
+            .map(Expression::Symbol)
+            .unwrap_or(Expression::Bool(false)));
+    }
+
+    let evaled = eval_expr(expr.clone(), env)?;
+
+    match evaled {
+        Expression::Symbol(sym) => Ok(env
+            .get_namespace_str(&sym)
+            .map(Expression::Symbol)
+            .unwrap_or(Expression::Bool(false))),
+        _ => Ok(Expression::Bool(false)),
+    }
+}
+
+fn eval_quote(list: &[Expression], _env: &mut Environment) -> Result<Expression, String> {
+    Ok(list[1].clone())
 }
 
 fn eval_if(list: &[Expression], env: &mut Environment) -> Result<Expression, String> {

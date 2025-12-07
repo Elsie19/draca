@@ -29,6 +29,11 @@ impl Namespace {
             target: item.into(),
         }
     }
+
+    pub fn from_string(value: String) -> Self {
+        let frags = value.split("::").map(ToString::to_string).collect();
+        Self { frags }
+    }
 }
 
 impl<I, T> From<I> for Namespace
@@ -79,6 +84,10 @@ impl From<&str> for NamespaceItem {
 }
 
 impl NamespaceItem {
+    pub fn from_string(value: String) -> Self {
+        Self::from(value.as_str())
+    }
+
     pub fn in_namespace(frags: impl Into<Namespace>, target: impl Into<String>) -> Self {
         Self {
             frags: frags.into(),
@@ -210,6 +219,14 @@ impl Environment {
         env.insert(
             "std::math::/",
             Expression::Func(|args: &[Expression]| match stdlib::math::div(args) {
+                Ok(expr) => expr,
+                Err(e) => panic!("{e}"),
+            }),
+        );
+
+        env.insert(
+            "std::cmp::=",
+            Expression::Func(|args: &[Expression]| match stdlib::cmp::eq(args) {
                 Ok(expr) => expr,
                 Err(e) => panic!("{e}"),
             }),

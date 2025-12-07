@@ -17,7 +17,7 @@ pub fn repl() {
         let expr = read_input().unwrap();
 
         match eval(&expr, &mut math_env) {
-            Ok(val) => println!(" ==> {val}"),
+            Ok(val) => println!(" ==> Ok: {val}"),
             Err(e) => eprintln!(" ==> Error: {e}"),
         }
     }
