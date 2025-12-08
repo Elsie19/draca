@@ -120,11 +120,15 @@ impl NamespaceItem {
             target: target.into(),
         }
     }
+
+    pub fn frags(&self) -> Namespace {
+        self.frags.clone()
+    }
 }
 
 impl Display for NamespaceItem {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}{}", self.frags, self.target)
+        write!(f, "{}::{}", self.frags, self.target)
     }
 }
 

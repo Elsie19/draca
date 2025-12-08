@@ -155,8 +155,40 @@ fn eval_define_namespace(list: &[Expression], env: &mut Environment) -> Result<E
             Err("Invalid define syntax".into())
         }
     } else if let Expression::Symbol(var_name) = list.get(1).unwrap() {
-        let value = eval_expr(list[2].clone(), env)?;
-        env.insert(NamespaceItem::from_str(var_name), value.clone());
+        let namespace = NamespaceItem::from(var_name.as_str());
+        let mut inner_env = env.clone().with_scope(namespace.frags());
+
+        let rhs = list[2].clone();
+
+        // If the right-hand side begins with `define`, treat it as a definition
+        // TODO: Figure out wtf to do for things besides define.
+        if let Expression::List(items) = &rhs
+            && let Some(Expression::Symbol(s)) = items.first()
+            && s == "define"
+            && let Expression::List(func_head) = &items[1]
+        {
+            let mut new_head = func_head.clone();
+
+            new_head[0] = Expression::Symbol(var_name.clone());
+
+            let mut rewritten = vec![
+                Expression::Symbol("define".into()),
+                Expression::List(new_head),
+            ];
+            rewritten.extend_from_slice(&items[2..]);
+
+            let _ = eval_define(&rewritten, &mut inner_env)?;
+
+            if let Some(bound) = inner_env.get(var_name) {
+                env.insert(namespace, bound.clone());
+                return Ok(Expression::Symbol(var_name.clone()));
+            }
+
+            return Err(format!("Inner define made no binding for {var_name}"));
+        }
+
+        let value = eval_expr(rhs, &mut inner_env)?;
+        env.insert(namespace, value.clone());
         Ok(Expression::Symbol(var_name.clone()))
     } else {
         Err("Invalid define syntax".into())
