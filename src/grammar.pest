@@ -1,0 +1,43 @@
+program = { SOI ~ form* ~ EOI }
+
+form = _{
+    list
+  | quoted
+  | string
+  | number
+  | symbol
+}
+
+list = {
+    "(" ~ form* ~ ")"
+}
+
+quoted = {
+    "'" ~ form
+}
+
+symbol = @{
+    !ASCII_DIGIT ~ (ASCII_ALPHANUMERIC | ":" | "_" | "-" | "+" | "*" | "/" | "?" | "!" | "<" | ">" | "=" | ".")+
+}
+
+number = @{
+    "-"? ~ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT+)?
+}
+
+string = @{
+    "\"" ~ (str_char)* ~ "\""
+}
+
+str_char = _{
+    "\\\""
+  | "\\n"
+  | "\\t"
+  | "\\\\"
+  | !"\"" ~ ANY
+}
+
+COMMENT = _{
+    ";" ~ (!NEWLINE ~ ANY)* ~ (NEWLINE | EOI)
+}
+
+WHITESPACE = _{ " " | "\t" | NEWLINE }
