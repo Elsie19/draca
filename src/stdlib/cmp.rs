@@ -11,10 +11,7 @@ macro_rules! impl_cmp_ops {
                 }
 
                 match args {
-                    [first, second] => {
-                        println!("{first} {} {second} = {}", stringify!($draca), first.$name(second));
-                        Ok(Expression::Bool(first.$name(second)))
-                    },
+                    [first, second] => Ok(Expression::Bool(first.$name(second))),
                     _ => unreachable!("We checked above"),
                 }
             }

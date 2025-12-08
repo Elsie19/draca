@@ -47,30 +47,7 @@ macro_rules! method_op {
     };
 }
 
-macro_rules! def_commutative_ops {
-    ( $( ($name:ident, $op:tt) ),* $(,)? ) => {
-        $(
-            pub fn $name(args: &[Expression]) -> Result<Expression, String> {
-                if args.len() <= 1 {
-                    return Err(format!("`{}` requires at least two arguments", stringify!($name)));
-                }
-
-                let mut res = 0.0;
-
-                for arg in args {
-                    match arg {
-                        Expression::Number(n) => res $op *n,
-                        _ => return Err(String::from("Expected a number")),
-                    }
-                }
-
-                Ok(Expression::Number(res))
-            }
-        )*
-    };
-}
-
-macro_rules! def_not_commutative_ops {
+macro_rules! def_ops {
     ( $( ($name:ident, $op:tt) ),* $(,)? ) => {
         $(
             pub fn $name(args: &[Expression]) -> Result<Expression, String> {
@@ -100,12 +77,9 @@ macro_rules! def_not_commutative_ops {
     };
 }
 
-def_commutative_ops![
+def_ops![
     (add, +=),
     (mul, *=),
-];
-
-def_not_commutative_ops![
     (sub, -=),
     (div, /=),
 ];
