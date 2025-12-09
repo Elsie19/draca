@@ -5,10 +5,3 @@ version = 4
 [[package]]
 name = "draca"
 version = "0.1.0"
-dependencies = [
- "jupiter",
-]
-
-[[package]]
-name = "jupiter"
-version = "0.1.0"

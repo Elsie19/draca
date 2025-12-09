@@ -1,0 +1,7 @@
+[package]
+name = "draca"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+jupiter = { version = "0.1.0", path = "../jupiter" }
