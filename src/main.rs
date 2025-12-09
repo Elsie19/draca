@@ -11,7 +11,11 @@ mod parser;
 mod stdlib;
 
 pub fn repl() {
-    let mut math_env = Environment::empty().math_plugin().cmp_plugin().build();
+    let mut math_env = Environment::empty()
+        .sys_plugin()
+        .math_plugin()
+        .cmp_plugin()
+        .build();
 
     loop {
         print!("draca-math> ");

@@ -216,6 +216,14 @@ impl Environment {
         None
     }
 
+    pub fn sys_plugin(mut self) -> Self {
+        env_insert![self =>
+            ("std::sys::exit",  fn => stdlib::sys::exit),
+        ];
+
+        self
+    }
+
     pub fn cmp_plugin(mut self) -> Self {
         self.add_scope(["std", "cmp"].into());
 
