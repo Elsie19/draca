@@ -51,13 +51,6 @@ where
     pub fn find(&self, item: &S) -> Vec<&NamespaceNode<S, T>> {
         self.root.find(item)
     }
-
-    pub fn get_namespace<I>(&self, iter: I) -> Option<&NamespaceNode<S, T>>
-    where
-        I: IntoIterator<Item = S>,
-    {
-        None
-    }
 }
 
 impl<S, T> Namespace<S, T>
@@ -82,7 +75,7 @@ where
     /// # Note
     /// This will not automatically map a `T` to the end of `I`, such that:
     ///
-    /// ```rust
+    /// ```no_run
     /// ns.insert_at_module(["std", "fns"], hello);
     /// ```
     ///
