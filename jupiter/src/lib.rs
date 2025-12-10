@@ -9,7 +9,7 @@
 //! ## Value Fragment
 //! A value fragment specifically a fragment that has a value in it.
 
-use std::{collections::BTreeMap, ops::Deref};
+use std::{collections::BTreeMap, marker::PhantomData, ops::Deref};
 
 pub trait NamespaceSeparator {
     fn sep(&self) -> &str;
@@ -40,12 +40,25 @@ pub struct NamespaceNode<S, T> {
     children: BTreeMap<S, Self>,
 }
 
+trait FragIsRootTrait {}
+trait FragIsRelativeTrait {}
+
+#[doc(hidden)]
+pub struct FragIsRoot;
+
+#[doc(hidden)]
+pub struct FragIsRelative;
+
+impl FragIsRootTrait for FragIsRoot {}
+impl FragIsRelativeTrait for FragIsRelative {}
+
 #[derive(Debug)]
-pub struct AbsoluteNamespaceFrags<'a, S> {
+pub struct NamespaceFrags<'a, S, T> {
     frags: Vec<&'a S>,
+    _boo: PhantomData<T>,
 }
 
-impl<'a, S> Deref for AbsoluteNamespaceFrags<'a, S> {
+impl<'a, S, T> Deref for NamespaceFrags<'a, S, T> {
     type Target = Vec<&'a S>;
 
     fn deref(&self) -> &Self::Target {
@@ -53,21 +66,21 @@ impl<'a, S> Deref for AbsoluteNamespaceFrags<'a, S> {
     }
 }
 
-impl<'a, S> From<Vec<&'a S>> for AbsoluteNamespaceFrags<'a, S> {
+impl<'a, S, T> From<Vec<&'a S>> for NamespaceFrags<'a, S, T> {
     fn from(frags: Vec<&'a S>) -> Self {
-        Self { frags }
+        Self {
+            frags,
+            _boo: PhantomData,
+        }
     }
 }
 
-impl<'a, S> AbsoluteNamespaceFrags<'a, S>
+impl<'a, S, T> NamespaceFrags<'a, S, T>
 where
     S: ToString,
 {
-    pub fn to_absolute_path(&self, sep: &str, opts: PathRules) -> String {
+    fn string_doer(&self, sep: &str) -> String {
         let mut str = String::new();
-        if matches!(opts, PathRules::SepPreceedsRoot) {
-            str += sep;
-        }
 
         let mut iter = self.frags.iter().peekable();
 
@@ -80,6 +93,34 @@ where
         }
 
         str
+    }
+}
+
+#[allow(private_bounds)]
+impl<'a, S, T> NamespaceFrags<'a, S, T>
+where
+    S: ToString,
+    T: FragIsRootTrait,
+{
+    pub fn as_absolute_path(&self, sep: &str, opts: PathRules) -> String {
+        let mut str = self.string_doer(sep);
+
+        if matches!(opts, PathRules::SepPreceedsRoot) {
+            str = format!("{sep}{str}")
+        }
+
+        str
+    }
+}
+
+#[allow(private_bounds)]
+impl<'a, S, T> NamespaceFrags<'a, S, T>
+where
+    S: ToString,
+    T: FragIsRelativeTrait,
+{
+    pub fn as_relative_path(&self, sep: &str) -> String {
+        self.string_doer(sep)
     }
 }
 
@@ -205,11 +246,18 @@ impl<S, T> NamespaceNode<S, T> {
     pub fn path_from_root<'a>(
         &'a self,
         root: &'a Namespace<S, T>,
-    ) -> Option<AbsoluteNamespaceFrags<'a, S>> {
-        self.path_from_branch(&root.root).map(Into::into)
+    ) -> Option<NamespaceFrags<'a, S, FragIsRoot>> {
+        self.path_inner(&root.root).map(Into::into)
     }
 
-    pub fn path_from_branch<'a>(&'a self, root: &'a Self) -> Option<Vec<&'a S>> {
+    pub fn path_from_branch<'a>(
+        &'a self,
+        root: &'a Self,
+    ) -> Option<NamespaceFrags<'a, S, FragIsRelative>> {
+        self.path_inner(root).map(Into::into)
+    }
+
+    fn path_inner<'a>(&'a self, root: &'a Self) -> Option<Vec<&'a S>> {
         let mut ret = vec![];
         if root.find_path_to(self, &mut ret) {
             Some(ret)

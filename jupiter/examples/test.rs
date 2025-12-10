@@ -44,7 +44,7 @@ fn main() {
         if let Some(path) = comp.path_from_root(&namespace) {
             println!(
                 "{}",
-                path.to_absolute_path("::", PathRules::SepPreceedsRoot)
+                path.as_absolute_path("::", PathRules::SepPreceedsRoot)
             );
         }
     }
