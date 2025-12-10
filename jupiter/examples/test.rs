@@ -13,7 +13,7 @@ fn format_add(s: &str) -> String {
 }
 
 fn main() {
-    let mut namespace = Namespace::<&str, fn(&str) -> String>::new();
+    let mut namespace = Namespace::<&str, fn(&str) -> String>::new("::");
 
     namespace.insert_at_module(["std", "fns", "hello"], hello);
     namespace.insert_with_name(["std", "fns"], "adios", bye);
@@ -42,10 +42,7 @@ fn main() {
 
     for comp in namespace.find(&"fns") {
         if let Some(path) = comp.path_from_root(&namespace) {
-            println!(
-                "{}",
-                path.as_absolute_path("::", PathRules::SepPreceedsRoot)
-            );
+            println!("{}", path.as_absolute_path(PathRules::SepPreceedsRoot));
         }
     }
 }

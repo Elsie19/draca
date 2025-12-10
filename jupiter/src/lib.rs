@@ -16,8 +16,9 @@ pub trait NamespaceSeparator {
 }
 
 /// A global namespace holder.
-pub struct Namespace<S, T> {
-    root: NamespaceNode<S, T>,
+pub struct Namespace<'a, S, T> {
+    root: NamespaceNode<'a, S, T>,
+    split: &'a str,
     // scopes: Vec<Frags<T>>,
 }
 
@@ -34,9 +35,10 @@ pub enum PathRules {
 }
 
 /// A fragment in the namespace.
-pub struct NamespaceNode<S, T> {
+pub struct NamespaceNode<'a, S, T> {
     name: Root<S>,
     value: Option<T>,
+    split: &'a str,
     children: BTreeMap<S, Self>,
 }
 
@@ -55,6 +57,7 @@ impl FragIsRelativeTrait for FragIsRelative {}
 #[derive(Debug)]
 pub struct NamespaceFrags<'a, S, T> {
     frags: Vec<&'a S>,
+    split: &'a str,
     _boo: PhantomData<T>,
 }
 
@@ -66,10 +69,11 @@ impl<'a, S, T> Deref for NamespaceFrags<'a, S, T> {
     }
 }
 
-impl<'a, S, T> From<Vec<&'a S>> for NamespaceFrags<'a, S, T> {
-    fn from(frags: Vec<&'a S>) -> Self {
+impl<'a, S, T> NamespaceFrags<'a, S, T> {
+    fn from_vec_split(frags: Vec<&'a S>, split: &'a str) -> Self {
         Self {
             frags,
+            split,
             _boo: PhantomData,
         }
     }
@@ -79,7 +83,7 @@ impl<S, T> NamespaceFrags<'_, S, T>
 where
     S: ToString,
 {
-    fn string_doer(&self, sep: &str) -> String {
+    fn string_doer(&self) -> String {
         let mut str = String::new();
 
         let mut iter = self.frags.iter().peekable();
@@ -88,7 +92,7 @@ where
             if iter.peek().is_none() {
                 str += &next.to_string();
             } else {
-                let _ = write!(str, "{}{}", next.to_string(), sep);
+                let _ = write!(str, "{}{}", next.to_string(), self.split);
             }
         }
 
@@ -102,11 +106,11 @@ where
     S: ToString,
     T: FragIsRootTrait,
 {
-    pub fn as_absolute_path(&self, sep: &str, opts: PathRules) -> String {
-        let mut str = self.string_doer(sep);
+    pub fn as_absolute_path(&self, opts: PathRules) -> String {
+        let mut str = self.string_doer();
 
         if matches!(opts, PathRules::SepPreceedsRoot) {
-            str = format!("{sep}{str}");
+            str = format!("{}{str}", self.split);
         }
 
         str
@@ -119,41 +123,42 @@ where
     S: ToString,
     T: FragIsRelativeTrait,
 {
-    pub fn as_relative_path(&self, sep: &str) -> String {
-        self.string_doer(sep)
+    pub fn as_relative_path(&self) -> String {
+        self.string_doer()
     }
 }
 
-impl<S, T> Namespace<S, T> {
+impl<'a, S, T> Namespace<'a, S, T> {
     /// Create a new namespace with `S` namespace separator and `T` item.
     #[must_use]
     #[allow(clippy::new_without_default)]
-    pub fn new() -> Self {
+    pub fn new(split: &'a str) -> Self {
         Self {
-            root: NamespaceNode::root(),
+            root: NamespaceNode::root(split),
+            split,
         }
     }
 
-    pub fn root(&self) -> &NamespaceNode<S, T> {
+    pub fn root(&self) -> &NamespaceNode<'_, S, T> {
         &self.root
     }
 }
 
-impl<S, T> Namespace<S, T>
+impl<S, T> Namespace<'_, S, T>
 where
     S: PartialEq,
 {
     /// Find all fragments where `item` is in them.
-    pub fn find(&self, item: &S) -> Vec<&NamespaceNode<S, T>> {
+    pub fn find(&self, item: &S) -> Vec<&NamespaceNode<'_, S, T>> {
         self.root.find(item)
     }
 }
 
-impl<S, T> Namespace<S, T>
+impl<S, T> Namespace<'_, S, T>
 where
     S: Ord + PartialEq,
 {
-    pub fn get_namespace<I>(&self, iter: I) -> Option<&NamespaceNode<S, T>>
+    pub fn get_namespace<I>(&self, iter: I) -> Option<&NamespaceNode<'_, S, T>>
     where
         I: IntoIterator<Item = S>,
     {
@@ -161,7 +166,7 @@ where
     }
 }
 
-impl<S, T> Namespace<S, T>
+impl<S, T> Namespace<'_, S, T>
 where
     S: Ord,
 {
@@ -174,7 +179,7 @@ where
     }
 }
 
-impl<S, T> Namespace<S, T>
+impl<S, T> Namespace<'_, S, T>
 where
     S: Ord + Clone,
 {
@@ -215,19 +220,21 @@ where
     }
 }
 
-impl<S, T> NamespaceNode<S, T> {
-    const fn root() -> Self {
+impl<'a, S, T> NamespaceNode<'a, S, T> {
+    const fn root(split: &'a str) -> Self {
         Self {
             name: Root::Root,
             value: None,
+            split,
             children: BTreeMap::new(),
         }
     }
 
-    fn leaf<I: Into<S>>(name: I) -> Self {
+    fn leaf<I: Into<S>>(name: I, split: &'a str) -> Self {
         Self {
             name: Root::Entry(name.into()),
             value: None,
+            split,
             children: BTreeMap::new(),
         }
     }
@@ -243,21 +250,23 @@ impl<S, T> NamespaceNode<S, T> {
         self.value.as_ref()
     }
 
-    pub fn path_from_root<'a>(
+    pub fn path_from_root(
         &'a self,
         root: &'a Namespace<S, T>,
     ) -> Option<NamespaceFrags<'a, S, FragIsRoot>> {
-        self.path_inner(&root.root).map(Into::into)
+        self.path_inner(&root.root)
+            .map(|f| NamespaceFrags::from_vec_split(f, root.split))
     }
 
-    pub fn path_from_branch<'a>(
+    pub fn path_from_branch(
         &'a self,
         root: &'a Self,
     ) -> Option<NamespaceFrags<'a, S, FragIsRelative>> {
-        self.path_inner(root).map(Into::into)
+        self.path_inner(root)
+            .map(|f| NamespaceFrags::from_vec_split(f, root.split))
     }
 
-    fn path_inner<'a>(&'a self, root: &'a Self) -> Option<Vec<&'a S>> {
+    fn path_inner(&'a self, root: &'a Self) -> Option<Vec<&'a S>> {
         let mut ret = vec![];
         if root.find_path_to(self, &mut ret) {
             Some(ret)
@@ -266,7 +275,7 @@ impl<S, T> NamespaceNode<S, T> {
         }
     }
 
-    fn find_path_to<'a>(&'a self, target: &'a Self, out: &mut Vec<&'a S>) -> bool {
+    fn find_path_to(&'a self, target: &'a Self, out: &mut Vec<&'a S>) -> bool {
         if std::ptr::eq(self, target) {
             return true;
         }
@@ -282,7 +291,7 @@ impl<S, T> NamespaceNode<S, T> {
     }
 }
 
-impl<S, T> NamespaceNode<S, T>
+impl<S, T> NamespaceNode<'_, S, T>
 where
     S: PartialEq,
 {
@@ -309,7 +318,7 @@ where
     }
 }
 
-impl<S, T> NamespaceNode<S, T>
+impl<S, T> NamespaceNode<'_, S, T>
 where
     S: Ord,
 {
@@ -341,7 +350,7 @@ where
     }
 }
 
-impl<S, T> NamespaceNode<S, T>
+impl<S, T> NamespaceNode<'_, S, T>
 where
     S: Ord + Clone,
 {
@@ -360,7 +369,7 @@ where
             node = node
                 .children
                 .entry(module.clone())
-                .or_insert_with(|| Self::leaf(module.clone()));
+                .or_insert_with(|| Self::leaf(module.clone(), node.split));
         }
 
         node
