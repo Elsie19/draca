@@ -9,7 +9,7 @@
 //! ## Value Fragment
 //! A value fragment specifically a fragment that has a value in it.
 
-use std::{collections::BTreeMap, marker::PhantomData, ops::Deref};
+use std::{collections::BTreeMap, fmt::Write as _, marker::PhantomData, ops::Deref};
 
 pub trait NamespaceSeparator {
     fn sep(&self) -> &str;
@@ -75,7 +75,7 @@ impl<'a, S, T> From<Vec<&'a S>> for NamespaceFrags<'a, S, T> {
     }
 }
 
-impl<'a, S, T> NamespaceFrags<'a, S, T>
+impl<S, T> NamespaceFrags<'_, S, T>
 where
     S: ToString,
 {
@@ -88,7 +88,7 @@ where
             if iter.peek().is_none() {
                 str += &next.to_string();
             } else {
-                str += &format!("{}{}", next.to_string(), sep);
+                let _ = write!(str, "{}{}", next.to_string(), sep);
             }
         }
 
@@ -97,7 +97,7 @@ where
 }
 
 #[allow(private_bounds)]
-impl<'a, S, T> NamespaceFrags<'a, S, T>
+impl<S, T> NamespaceFrags<'_, S, T>
 where
     S: ToString,
     T: FragIsRootTrait,
@@ -106,7 +106,7 @@ where
         let mut str = self.string_doer(sep);
 
         if matches!(opts, PathRules::SepPreceedsRoot) {
-            str = format!("{sep}{str}")
+            str = format!("{sep}{str}");
         }
 
         str
@@ -114,7 +114,7 @@ where
 }
 
 #[allow(private_bounds)]
-impl<'a, S, T> NamespaceFrags<'a, S, T>
+impl<S, T> NamespaceFrags<'_, S, T>
 where
     S: ToString,
     T: FragIsRelativeTrait,
