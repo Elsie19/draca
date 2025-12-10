@@ -16,7 +16,7 @@ enum Root<S> {
     Entry(S),
 }
 
-struct NamespaceNode<S, T> {
+pub struct NamespaceNode<S, T> {
     name: Root<S>,
     value: Option<T>,
     children: BTreeMap<S, Self>,
@@ -28,6 +28,15 @@ impl<S, T> Namespace<S, T> {
         Self {
             root: NamespaceNode::root(),
         }
+    }
+}
+
+impl<S, T> Namespace<S, T>
+where
+    S: PartialEq,
+{
+    pub fn find(&self, item: &S) -> Vec<&NamespaceNode<S, T>> {
+        self.root.find(item).collect()
     }
 }
 
@@ -92,6 +101,16 @@ impl<S, T> NamespaceNode<S, T> {
     fn emplace_item(&mut self, item: T) {
         self.value = Some(item);
         self.children = BTreeMap::new();
+    }
+
+    fn find(&self, item: &S) -> impl Iterator<Item = &Self>
+    where
+        S: PartialEq,
+    {
+        self.children
+            .iter()
+            .filter(move |(name, _)| *name == item)
+            .map(|(_, module)| module)
     }
 }
 
