@@ -9,7 +9,7 @@
 //! ## Value Fragment
 //! A value fragment specifically a fragment that has a value in it.
 
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, ops::Deref};
 
 pub trait NamespaceSeparator {
     fn sep(&self) -> &str;
@@ -27,6 +27,12 @@ enum Root<S> {
     Entry(S),
 }
 
+#[derive(Clone, Copy)]
+pub enum PathRules {
+    SepPreceedsRoot,
+    Default,
+}
+
 /// A fragment in the namespace.
 pub struct NamespaceNode<S, T> {
     name: Root<S>,
@@ -34,12 +40,61 @@ pub struct NamespaceNode<S, T> {
     children: BTreeMap<S, Self>,
 }
 
+#[derive(Debug)]
+pub struct AbsoluteNamespaceFrags<'a, S> {
+    frags: Vec<&'a S>,
+}
+
+impl<'a, S> Deref for AbsoluteNamespaceFrags<'a, S> {
+    type Target = Vec<&'a S>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.frags
+    }
+}
+
+impl<'a, S> From<Vec<&'a S>> for AbsoluteNamespaceFrags<'a, S> {
+    fn from(frags: Vec<&'a S>) -> Self {
+        Self { frags }
+    }
+}
+
+impl<'a, S> AbsoluteNamespaceFrags<'a, S>
+where
+    S: ToString,
+{
+    pub fn to_absolute_path(&self, sep: &str, opts: PathRules) -> String {
+        let mut str = String::new();
+        if matches!(opts, PathRules::SepPreceedsRoot) {
+            str += sep;
+        }
+
+        let mut iter = self.frags.iter().peekable();
+
+        while let Some(next) = iter.next() {
+            if iter.peek().is_none() {
+                str += &next.to_string();
+            } else {
+                str += &format!("{}{}", next.to_string(), sep);
+            }
+        }
+
+        str
+    }
+}
+
 impl<S, T> Namespace<S, T> {
     /// Create a new namespace with `S` namespace separator and `T` item.
+    #[must_use]
+    #[allow(clippy::new_without_default)]
     pub fn new() -> Self {
         Self {
             root: NamespaceNode::root(),
         }
+    }
+
+    pub fn root(&self) -> &NamespaceNode<S, T> {
+        &self.root
     }
 }
 
@@ -50,6 +105,18 @@ where
     /// Find all fragments where `item` is in them.
     pub fn find(&self, item: &S) -> Vec<&NamespaceNode<S, T>> {
         self.root.find(item)
+    }
+}
+
+impl<S, T> Namespace<S, T>
+where
+    S: Ord + PartialEq,
+{
+    pub fn get_namespace<I>(&self, iter: I) -> Option<&NamespaceNode<S, T>>
+    where
+        I: IntoIterator<Item = S>,
+    {
+        self.root.wind_to_fragment(iter)
     }
 }
 
@@ -130,20 +197,55 @@ impl<S, T> NamespaceNode<S, T> {
         self.children = BTreeMap::new();
     }
 
+    /// Get the value of the current node.
+    fn extract_value(&self) -> Option<&T> {
+        self.value.as_ref()
+    }
+
+    pub fn path_from_root<'a>(
+        &'a self,
+        root: &'a Namespace<S, T>,
+    ) -> Option<AbsoluteNamespaceFrags<'a, S>> {
+        self.path_from_branch(&root.root).map(Into::into)
+    }
+
+    pub fn path_from_branch<'a>(&'a self, root: &'a Self) -> Option<Vec<&'a S>> {
+        let mut ret = vec![];
+        if root.find_path_to(self, &mut ret) {
+            Some(ret)
+        } else {
+            None
+        }
+    }
+
+    fn find_path_to<'a>(&'a self, target: &'a Self, out: &mut Vec<&'a S>) -> bool {
+        if std::ptr::eq(self, target) {
+            return true;
+        }
+
+        for (name, child) in &self.children {
+            if child.find_path_to(target, out) {
+                out.insert(0, name);
+                return true;
+            }
+        }
+
+        false
+    }
+}
+
+impl<S, T> NamespaceNode<S, T>
+where
+    S: PartialEq,
+{
     /// Get all fragments matching `item`.
-    fn find(&self, item: &S) -> Vec<&Self>
-    where
-        S: PartialEq,
-    {
+    fn find(&self, item: &S) -> Vec<&Self> {
         let mut out = vec![];
         self.find_inner(item, &mut out);
         out
     }
 
-    fn find_inner<'a>(&'a self, item: &S, out: &mut Vec<&'a Self>)
-    where
-        S: PartialEq,
-    {
+    fn find_inner<'a>(&'a self, item: &S, out: &mut Vec<&'a Self>) {
         match &self.name {
             Root::Root => (),
             Root::Entry(entr) => {
@@ -156,11 +258,6 @@ impl<S, T> NamespaceNode<S, T> {
         for child in self.children.values() {
             child.find_inner(item, out);
         }
-    }
-
-    /// Get the value of the current node.
-    fn extract_value(&self) -> Option<&T> {
-        self.value.as_ref()
     }
 }
 

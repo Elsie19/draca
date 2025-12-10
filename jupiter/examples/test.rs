@@ -1,4 +1,4 @@
-use jupiter::Namespace;
+use jupiter::{Namespace, PathRules};
 
 fn hello(s: &str) -> String {
     format!("Hello {s}")
@@ -39,4 +39,13 @@ fn main() {
             None => String::from("nope"),
         }
     );
+
+    for comp in namespace.find(&"fns") {
+        if let Some(path) = comp.path_from_root(&namespace) {
+            println!(
+                "{}",
+                path.to_absolute_path("::", PathRules::SepPreceedsRoot)
+            );
+        }
+    }
 }
