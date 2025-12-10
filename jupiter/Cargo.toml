@@ -7,3 +7,7 @@ edition = "2024"
 
 [[example]]
 name = "test"
+doc-scrape-examples = true
+
+[package.metadata.docs.rs]
+cargo-args = ["-Zunstable-options", "-Zrustdoc-scrape-examples"]
