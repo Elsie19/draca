@@ -1,5 +1,11 @@
 //! Name*spacing* library.
 //!
+//! This is *not* meant to be the fastest most optimized library ever. It's meant to work well with
+//! Draca, and other tools, I give no guarantees.
+//!
+//! [`Namespace`] is expected to have [`std::str`]s, and while this library is generic, I
+//! specifically designed it to work with them, so I have no idea how other types work.
+//!
 //! # Key Terms
 //!
 //! ## Fragments
@@ -9,11 +15,9 @@
 //! ## Value Fragment
 //! A value fragment specifically a fragment that has a value in it.
 
-use std::{collections::BTreeMap, fmt::Write as _, marker::PhantomData, ops::Deref};
-
-pub trait NamespaceSeparator {
-    fn sep(&self) -> &str;
-}
+use std::{
+    borrow::Borrow, collections::BTreeMap, fmt::Write as _, marker::PhantomData, ops::Deref,
+};
 
 /// A global namespace holder.
 pub struct Namespace<'a, S, T> {
@@ -28,9 +32,10 @@ enum Root<S> {
     Entry(S),
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, Default)]
 pub enum PathRules {
     SepPreceedsRoot,
+    #[default]
     Default,
 }
 
@@ -142,6 +147,16 @@ impl<'a, S, T> Namespace<'a, S, T> {
     pub fn root(&self) -> &NamespaceNode<'_, S, T> {
         &self.root
     }
+
+    pub const fn split(&self) -> &str {
+        self.split
+    }
+
+    pub fn all_items(&self) -> Vec<&NamespaceNode<'_, S, T>> {
+        let mut out = vec![];
+        self.root.collect_items(&mut out);
+        out
+    }
 }
 
 impl<S, T> Namespace<'_, S, T>
@@ -149,8 +164,13 @@ where
     S: PartialEq,
 {
     /// Find all fragments where `item` is in them.
-    pub fn find(&self, item: &S) -> Vec<&NamespaceNode<'_, S, T>> {
-        self.root.find(item)
+    ///
+    /// This can return both fragments and value fragments.
+    pub fn find<Q>(&self, item: Q) -> Vec<&NamespaceNode<'_, S, T>>
+    where
+        Q: Borrow<S>,
+    {
+        self.root.find(item.borrow())
     }
 }
 
@@ -189,13 +209,13 @@ where
     /// This will not automatically map a `T` to the end of `I`, such that:
     ///
     /// ```no_run
-    /// ns.insert_at_module(["std", "fns"], hello);
+    /// ns.insert_at_module(["std", "fns"], hello); // ❌
     /// ```
     ///
     /// Will **not** produce `["std", "fns", "hello"] -> hello`, but instead `["std", "fns"] ->
     /// hello`
     ///
-    /// Use [`Self::insert_with_name`] if you want that functionality.
+    /// Use [`Self::insert_at_module`] if you want that functionality.
     pub fn insert_at_module<I>(&mut self, iter: I, value: T)
     where
         I: IntoIterator<Item = S>,
@@ -204,7 +224,7 @@ where
         module.emplace_item(value);
     }
 
-    pub fn insert_with_name<I>(&mut self, iter: I, name: S, value: T)
+    pub fn insert_in_module<I>(&mut self, iter: I, name: S, value: T)
     where
         I: IntoIterator<Item = S>,
     {
@@ -245,8 +265,15 @@ impl<'a, S, T> NamespaceNode<'a, S, T> {
         self.children = BTreeMap::new();
     }
 
+    pub fn name(&self) -> Option<&S> {
+        match self.name {
+            Root::Root => None,
+            Root::Entry(ref e) => Some(e),
+        }
+    }
+
     /// Get the value of the current node.
-    fn extract_value(&self) -> Option<&T> {
+    pub fn extract_value(&self) -> Option<&T> {
         self.value.as_ref()
     }
 
@@ -288,6 +315,16 @@ impl<'a, S, T> NamespaceNode<'a, S, T> {
         }
 
         false
+    }
+
+    fn collect_items(&'a self, out: &mut Vec<&'a Self>) {
+        if self.value.is_some() {
+            out.push(self);
+        }
+
+        for child in self.children.values() {
+            child.collect_items(out);
+        }
     }
 }
 
