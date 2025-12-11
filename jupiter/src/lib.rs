@@ -176,18 +176,6 @@ where
 
 impl<S, T> Namespace<'_, S, T>
 where
-    S: Ord + PartialEq,
-{
-    pub fn get_namespace<I>(&self, iter: I) -> Option<&NamespaceNode<'_, S, T>>
-    where
-        I: IntoIterator<Item = S>,
-    {
-        self.root.wind_to_fragment(iter)
-    }
-}
-
-impl<S, T> Namespace<'_, S, T>
-where
     S: Ord,
 {
     /// Get `T` from a fragment iterator.
@@ -196,6 +184,13 @@ where
         I: IntoIterator<Item = S>,
     {
         self.root.get_item(iter)
+    }
+
+    pub fn get_namespace<I>(&self, iter: I) -> Option<&NamespaceNode<'_, S, T>>
+    where
+        I: IntoIterator<Item = S>,
+    {
+        self.root.wind_to_fragment(iter)
     }
 }
 
@@ -265,7 +260,7 @@ impl<'a, S, T> NamespaceNode<'a, S, T> {
         self.children = BTreeMap::new();
     }
 
-    pub fn name(&self) -> Option<&S> {
+    pub const fn name(&self) -> Option<&S> {
         match self.name {
             Root::Root => None,
             Root::Entry(ref e) => Some(e),
@@ -340,13 +335,10 @@ where
     }
 
     fn find_inner<'a>(&'a self, item: &S, out: &mut Vec<&'a Self>) {
-        match &self.name {
-            Root::Root => (),
-            Root::Entry(entr) => {
-                if *entr == *item {
-                    out.push(self);
-                }
-            }
+        if let Root::Entry(entr) = &self.name
+            && *entr == *item
+        {
+            out.push(self);
         }
 
         for child in self.children.values() {
@@ -406,7 +398,7 @@ where
             node = node
                 .children
                 .entry(module.clone())
-                .or_insert_with(|| Self::leaf(module.clone(), node.split));
+                .or_insert_with(|| Self::leaf(module, node.split));
         }
 
         node
