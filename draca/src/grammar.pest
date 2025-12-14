@@ -24,9 +24,11 @@ number = @{
     "-"? ~ ASCII_DIGIT+ ~ ("." ~ ASCII_DIGIT+)?
 }
 
-string = @{
-    "\"" ~ (str_char)* ~ "\""
+string = ${
+    "\"" ~ strinner ~ "\""
 }
+
+strinner = @{ str_char* }
 
 str_char = _{
     "\\\""

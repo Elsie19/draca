@@ -16,18 +16,39 @@ pub enum Expression {
     Quoted(Box<Expression>),
 }
 
+impl Expression {
+    pub fn fmt_string(&self) -> String {
+        match self {
+            Self::Bool(b) => b.to_string(),
+            Self::Number(n) => n.to_string(),
+            Self::String(s) => s.to_string(),
+            Self::Quoted(fmt) => format!("'{}", fmt.fmt_string()),
+            Self::List(lst) => format!(
+                "({})",
+                lst.iter()
+                    .map(Self::fmt_string)
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            ),
+            Self::Function(_) => String::from("<function>"),
+            Self::Func(_) => String::from("<fn>"),
+            Self::Symbol(s) => s.to_string(),
+        }
+    }
+}
+
 impl Display for Expression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Expression::Bool(b) => write!(f, "{b}"),
-            Expression::Number(n) => write!(f, "{n}"),
-            Expression::Symbol(s) => write!(f, "{s}"),
-            Expression::String(s) => write!(f, "\"{s}\""),
-            Expression::List(list) => {
+            Self::Bool(b) => write!(f, "{b}"),
+            Self::Number(n) => write!(f, "{n}"),
+            Self::Symbol(s) => write!(f, "{s}"),
+            Self::String(s) => write!(f, "\"{s}\""),
+            Self::List(list) => {
                 let formatted_list: Vec<_> = list.iter().map(ToString::to_string).collect();
                 write!(f, "({})", formatted_list.join(" "))
             }
-            Expression::Func(_) => write!(f, "<function>"),
+            Self::Func(_) => write!(f, "<function>"),
             Self::Function(func) => {
                 write!(
                     f,
@@ -73,8 +94,14 @@ impl Parse {
         input.as_str().parse().map_err(|e| input.error(e))
     }
 
+    fn strinner(input: Node<'_>) -> Result<&str> {
+        Ok(input.as_str())
+    }
+
     fn string(input: Node) -> Result<String> {
-        Ok(input.as_str().to_string())
+        Ok(match_nodes!(input.into_children();
+            [strinner(st)] => st.to_string(),
+        ))
     }
 
     fn symbol(input: Node) -> Result<String> {

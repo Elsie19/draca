@@ -11,6 +11,7 @@ mod stdlib;
 
 pub fn repl() {
     let mut math_env = Environment::empty()
+        .macros_plugin()
         .sys_plugin()
         .math_plugin()
         .cmp_plugin()

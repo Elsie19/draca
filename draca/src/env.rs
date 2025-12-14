@@ -216,6 +216,18 @@ impl Environment {
         None
     }
 
+    pub fn macros_plugin(mut self) -> Self {
+        self.add_scope(["std", "macros"].into());
+
+        env_insert![self =>
+            ("std::macros::panic",  fn => stdlib::macros::panic),
+            ("std::macros::format",  fn => stdlib::macros::format),
+            ("std::macros::println",  fn => stdlib::macros::println),
+        ];
+
+        self
+    }
+
     pub fn sys_plugin(mut self) -> Self {
         env_insert![self =>
             ("std::sys::exit",  fn => stdlib::sys::exit),
