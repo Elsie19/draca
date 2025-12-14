@@ -21,10 +21,10 @@ pub fn repl() {
         io::stdout().flush().unwrap();
         let expr = read_input().unwrap();
 
-        let parsed_list = match parse(&expr) {
+        let parsed_list = match parse(expr.trim()) {
             Ok(val) => val,
             Err(e) => {
-                eprintln!("Oops, {:?}", e);
+                eprintln!("{e}");
                 std::process::exit(1);
             }
         };
