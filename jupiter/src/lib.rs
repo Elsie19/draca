@@ -47,6 +47,11 @@ pub struct NamespaceNode<'a, S, T> {
     children: BTreeMap<S, Self>,
 }
 
+pub struct NodeValue<'a, S, T> {
+    name: &'a S,
+    value: &'a T,
+}
+
 trait FragIsRootTrait {}
 trait FragIsRelativeTrait {}
 
@@ -64,6 +69,16 @@ pub struct NamespaceFrags<'a, S, T> {
     frags: Vec<&'a S>,
     split: &'a str,
     _boo: PhantomData<T>,
+}
+
+impl<S, T> NodeValue<'_, S, T> {
+    pub fn name(&self) -> &S {
+        self.name
+    }
+
+    pub fn value(&self) -> &T {
+        self.value
+    }
 }
 
 impl<'a, S, T> Deref for NamespaceFrags<'a, S, T> {
@@ -152,7 +167,8 @@ impl<'a, S, T> Namespace<'a, S, T> {
         self.split
     }
 
-    pub fn all_items(&self) -> Vec<&NamespaceNode<'_, S, T>> {
+    /// Get all value fragments.
+    pub fn all_items(&'a self) -> Vec<NodeValue<'a, S, T>> {
         let mut out = vec![];
         self.root.collect_items(&mut out);
         out
@@ -312,9 +328,22 @@ impl<'a, S, T> NamespaceNode<'a, S, T> {
         false
     }
 
-    fn collect_items(&'a self, out: &mut Vec<&'a Self>) {
+    fn as_value(&'a self) -> Option<NodeValue<'a, S, T>> {
+        Some(NodeValue {
+            name: match &self.name {
+                Root::Entry(entr) => entr,
+                Root::Root => return None,
+            },
+            value: match &self.value {
+                Some(value) => value,
+                None => return None,
+            },
+        })
+    }
+
+    fn collect_items(&'a self, out: &mut Vec<NodeValue<'a, S, T>>) {
         if self.value.is_some() {
-            out.push(self);
+            out.push(self.as_value().expect("value is some but name isn't?"));
         }
 
         for child in self.children.values() {
