@@ -2,26 +2,22 @@ use std::fs;
 
 use crate::{
     env::{Environment, Namespace, NamespaceItem},
-    parser::{Expression, Procedure, parse},
+    parser::{Expression, Procedure},
 };
 
-pub fn eval(program: &str, env: &mut Environment) -> Result<Expression, String> {
-    let parsed_expr = match parse(program) {
-        Ok(expr) => expr,
-        Err(e) => {
-            eprintln!("Error during parsing: {e}");
-            std::process::exit(1);
-        }
-    };
-
-    let evaluated_expression = eval_expr(parsed_expr, env)?;
+pub fn eval(expr: Expression, env: &mut Environment) -> Result<Expression, String> {
+    let evaluated_expression = eval_expr(expr, env)?;
 
     Ok(evaluated_expression)
 }
 
 fn eval_expr(expr: Expression, env: &mut Environment) -> Result<Expression, String> {
     match expr {
-        Expression::Bool(_) | Expression::Number(_) | Expression::Func(_) => Ok(expr),
+        Expression::Bool(_)
+        | Expression::Number(_)
+        | Expression::Func(_)
+        | Expression::Quoted(_)
+        | Expression::String(_) => Ok(expr),
         Expression::Symbol(s) => env
             .get(&s)
             .cloned()
@@ -279,7 +275,21 @@ fn eval_file(list: &[Expression], env: &mut Environment) -> Result<Expression, S
         [_, path] => {
             if let Expression::Symbol(path) = path {
                 let contents = fs::read_to_string(path).unwrap_or(String::from("()"));
-                eval(&contents, env)
+                let parsed_list = match crate::parser::parse(&contents) {
+                    Ok(val) => val,
+                    Err(e) => {
+                        eprintln!("{:?}", e);
+                        std::process::exit(1);
+                    }
+                };
+
+                let mut retxpr = Ok(Expression::Bool(true));
+
+                for expr in parsed_list {
+                    retxpr = eval(expr, env);
+                }
+
+                retxpr
             } else {
                 Err("eval-files requires a symbol".into())
             }

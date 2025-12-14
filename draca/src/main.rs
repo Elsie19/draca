@@ -2,11 +2,10 @@
 
 use std::io::{self, Write};
 
-use crate::{env::Environment, eval::eval};
+use crate::{env::Environment, eval::eval, parser::parse};
 
 mod env;
 mod eval;
-mod lexer;
 mod parser;
 mod stdlib;
 
@@ -22,9 +21,19 @@ pub fn repl() {
         io::stdout().flush().unwrap();
         let expr = read_input().unwrap();
 
-        match eval(&expr, &mut math_env) {
-            Ok(val) => println!(" ==> Ok: {val}"),
-            Err(e) => eprintln!(" ==> Error: {e}"),
+        let parsed_list = match parse(&expr) {
+            Ok(val) => val,
+            Err(e) => {
+                eprintln!("Oops, {:?}", e);
+                std::process::exit(1);
+            }
+        };
+
+        for expr in parsed_list {
+            match eval(expr, &mut math_env) {
+                Ok(val) => println!(" ==> Ok: {val}"),
+                Err(e) => eprintln!(" ==> Error: {e}"),
+            }
         }
     }
 }

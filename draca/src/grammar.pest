@@ -1,6 +1,6 @@
-program = { SOI ~ form* ~ EOI }
+program = { SOI ~ list* ~ EOI }
 
-form = _{
+form = {
     list
   | quoted
   | string
