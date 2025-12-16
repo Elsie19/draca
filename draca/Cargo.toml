@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+ansi_term = "0.12.1"
 jupiter = { version = "0.1.0", path = "../jupiter" }
 pest = "2.8.4"
 pest_consume = "1.1.3"
