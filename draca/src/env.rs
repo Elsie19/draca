@@ -14,10 +14,7 @@ macro_rules! env_insert {
     (@one $env:expr, ($name:expr, fn => $run:path)) => {
         $env.insert(
             $name,
-            Expression::Func(|args: &[Expression]| match $run(args) {
-                Ok(expr) => expr,
-                Err(e) => panic!("{e}"),
-            }),
+            Expression::Func(|args: &[Expression]| $run(args))
         );
     };
     (@one $env:expr, ($name:expr, const => $val:expr)) => {

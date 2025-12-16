@@ -50,7 +50,7 @@ fn eval_list(list: &[Expression], env: &mut Environment) -> Result<Expression, S
                                 .iter()
                                 .map(|x| eval_expr(x.clone(), env))
                                 .collect();
-                            Ok(function(&args?))
+                            function(&args?)
                         }
                         Expression::Function(proc) => {
                             let env_clone = &mut env.clone();

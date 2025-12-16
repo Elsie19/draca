@@ -11,7 +11,7 @@ pub enum Expression {
     Symbol(String),
     String(String),
     List(Vec<Expression>),
-    Func(fn(&[Expression]) -> Expression),
+    Func(fn(&[Expression]) -> std::result::Result<Expression, String>),
     Function(Procedure),
     Quoted(Box<Expression>),
 }

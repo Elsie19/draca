@@ -21,6 +21,11 @@ pub fn repl() -> rustyline::Result<()> {
 
     let mut rl = Editor::<(), _>::with_history(Config::builder().build(), MemHistory::new())?;
 
+    println!(
+        "Draca REPL {}.\nTo exit, type `(std::sys::exit)` or press `^D`.",
+        env!("CARGO_PKG_VERSION")
+    );
+
     loop {
         let readline = rl.readline("\\> ");
         match readline {
@@ -29,7 +34,7 @@ pub fn repl() -> rustyline::Result<()> {
                     Ok(val) => val,
                     Err(e) => {
                         eprintln!("{e}");
-                        std::process::exit(1);
+                        continue;
                     }
                 };
 
