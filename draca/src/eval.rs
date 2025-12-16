@@ -41,6 +41,7 @@ pub(crate) fn eval_list(list: &[Expression], env: &mut Environment) -> Result<Ex
             "require" => eval_require(list, env),
             "deconst-fn" => eval_deconst_fn(list, env),
             "if" => eval_if(list, env),
+            "let" => eval_let(list, env),
             _ => {
                 if let Some(exp) = env.get(s) {
                     match exp {
@@ -311,4 +312,40 @@ fn eval_if(list: &[Expression], env: &mut Environment) -> Result<Expression, Str
         },
         _ => unreachable!("Checked above"),
     }
+}
+
+fn eval_let(list: &[Expression], env: &mut Environment) -> Result<Expression, String> {
+    if list.len() < 3 {
+        return Err("`let` requires bindings and a body".into());
+    }
+
+    let bindings = match &list[1] {
+        Expression::List(b) => b,
+        _ => return Err("`let` bindings must be a list".into()),
+    };
+
+    let mut local_env = env.clone();
+
+    for binding in bindings {
+        match binding {
+            Expression::List(pair) if pair.len() == 2 => {
+                let name = match &pair[0] {
+                    Expression::Symbol(s) => s,
+                    _ => return Err("`let` binding name must be a symbol".into()),
+                };
+
+                let value = eval_expr(pair[1].clone(), env)?;
+                local_env.insert(NamespaceItem::from_str(name), value);
+            }
+            _ => return Err("Invalid `let` binding".into()),
+        }
+    }
+
+    let mut result = Expression::Bool(false);
+
+    for expr in &list[2..] {
+        result = eval_expr(expr.clone(), &mut local_env)?;
+    }
+
+    Ok(result)
 }

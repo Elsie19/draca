@@ -161,6 +161,7 @@ fn cmd_sets(env: &Environment) -> HashSet<Command> {
         "require",
         "deconst-fn",
         "if",
+        "let",
     ] {
         set.insert(Command::new(it, ""));
         set.insert(Command::new("", it));
