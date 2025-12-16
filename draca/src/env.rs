@@ -51,6 +51,10 @@ impl Namespace {
         let frags = value.split("::").map(ToString::to_string).collect();
         Self { frags }
     }
+
+    pub fn as_str(&self, join: &str) -> String {
+        self.frags.join(join)
+    }
 }
 
 impl<I, T> From<I> for Namespace
@@ -118,6 +122,10 @@ impl NamespaceItem {
         }
     }
 
+    pub fn target(&self) -> &str {
+        &self.target
+    }
+
     pub fn frags(&self) -> Namespace {
         self.frags.clone()
     }
@@ -151,6 +159,18 @@ impl Environment {
 
     pub fn scopes(&self) -> &[Namespace] {
         &self.in_scope
+    }
+
+    pub fn full_path_and_name(&self) -> Vec<(String, &str)> {
+        self.contents
+            .keys()
+            .map(|key| (key.to_string(), key.target()))
+            .collect()
+    }
+
+    pub fn values(&self) -> Vec<&str> {
+        let keys = self.contents.keys();
+        keys.into_iter().map(|key| key.target()).collect()
     }
 
     pub fn with_scope(mut self, ns: Namespace) -> Self {
