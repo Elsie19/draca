@@ -12,10 +12,7 @@ pub fn panic(args: &[Expression]) -> Result<Expression, String> {
 
 pub fn format(args: &[Expression]) -> Result<Expression, String> {
     match &args {
-        [single] => {
-            println!("{}", single.fmt_string());
-            Ok(Expression::String(single.fmt_string()))
-        }
+        [single] => Ok(Expression::String(single.fmt_string())),
         [fmt_string, rest @ ..] => {
             let Expression::String(fmt_string) = fmt_string else {
                 return Err("format string must begin with string".into());
