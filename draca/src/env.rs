@@ -2,8 +2,7 @@ use std::collections::BTreeMap;
 use std::f64::consts::{E, PI};
 use std::fmt::Display;
 
-use crate::parser::Expression;
-use crate::stdlib;
+use crate::{lisp, parser::Expression, stdlib};
 
 macro_rules! env_insert {
     ($env:expr => $($entry:tt),* $(,)?) => {
@@ -22,6 +21,7 @@ macro_rules! env_insert {
     };
 }
 
+// TODO: replace with [`jupiter`].
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct Namespace {
     frags: Vec<String>,
@@ -233,7 +233,9 @@ impl Environment {
         None
     }
 
-    pub fn macros_plugin(mut self) -> Self {
+    pub fn rust_builtins(mut self) -> Self {
+        // MACROS //
+
         self.add_scope(["std", "macros"].into());
 
         env_insert![self =>
@@ -242,45 +244,53 @@ impl Environment {
             ("std::macros::println",  fn => stdlib::macros::println),
         ];
 
-        self
-    }
+        // SYSTEM COMPONENTS //
 
-    pub fn sys_plugin(mut self) -> Self {
         env_insert![self =>
             ("std::sys::exit",  fn => stdlib::sys::exit),
         ];
 
-        self
-    }
+        // NUMERICAL COMPARISONS //
 
-    pub fn cmp_plugin(mut self) -> Self {
         self.add_scope(["std", "cmp"].into());
 
         env_insert![self =>
-            ("std::cmp::=",  fn => stdlib::cmp::eq),
+            ("std::cmp::=",   fn => stdlib::cmp::eq),
             ("std::cmp::/=",  fn => stdlib::cmp::ne),
-            ("std::cmp::>",  fn => stdlib::cmp::gt),
-            ("std::cmp::<",  fn => stdlib::cmp::lt),
+            ("std::cmp::>",   fn => stdlib::cmp::gt),
+            ("std::cmp::<",   fn => stdlib::cmp::lt),
             ("std::cmp::>=",  fn => stdlib::cmp::ge),
             ("std::cmp::<=",  fn => stdlib::cmp::le),
+        ];
+
+        // MATH //
+
+        self.add_scope(["std", "math"].into());
+        self.add_scope(["std", "math", "consts"].into());
+
+        env_insert![self =>
+            ("std::math::+",           fn => stdlib::math::add),
+            ("std::math::-",           fn => stdlib::math::sub),
+            ("std::math::*",           fn => stdlib::math::mul),
+            ("std::math::/",           fn => stdlib::math::div),
+            ("std::math::rem",         fn => stdlib::math::rem),
+            ("std::math::pow",         fn => stdlib::math::pow),
+            ("std::math::consts::pi",  const => Expression::Number(PI)),
+            ("std::math::consts::e",   const => Expression::Number(E)),
         ];
 
         self
     }
 
-    pub fn math_plugin(mut self) -> Self {
-        self.add_scope(["std", "math"].into());
-        self.add_scope(["std", "math", "consts"].into());
+    pub fn stdlib(mut self) -> Self {
+        self.add_scope(["std", "math", "fns"].into());
+
+        let square = lisp!("(define (square x) (* x x))", &mut self);
+        let abs = lisp!("(define (abs x) (if (< x 0) (- x) x))", &mut self);
 
         env_insert![self =>
-            ("std::math::+",   fn => stdlib::math::add),
-            ("std::math::-",   fn => stdlib::math::sub),
-            ("std::math::*",   fn => stdlib::math::mul),
-            ("std::math::/",   fn => stdlib::math::div),
-            ("std::math::rem", fn => stdlib::math::rem),
-            ("std::math::pow", fn => stdlib::math::pow),
-            ("std::math::consts::pi", const => Expression::Number(PI)),
-            ("std::math::consts::e",  const => Expression::Number(E)),
+            ("std::math::fns::square", const => square),
+            ("std::math::fns::abs",    const => abs),
         ];
 
         self

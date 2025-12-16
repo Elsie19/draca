@@ -11,7 +11,7 @@ pub fn eval(expr: Expression, env: &mut Environment) -> Result<Expression, Strin
     Ok(evaluated_expression)
 }
 
-fn eval_expr(expr: Expression, env: &mut Environment) -> Result<Expression, String> {
+pub(crate) fn eval_expr(expr: Expression, env: &mut Environment) -> Result<Expression, String> {
     match expr {
         Expression::Bool(_)
         | Expression::Number(_)
@@ -27,7 +27,7 @@ fn eval_expr(expr: Expression, env: &mut Environment) -> Result<Expression, Stri
     }
 }
 
-fn eval_list(list: &[Expression], env: &mut Environment) -> Result<Expression, String> {
+pub(crate) fn eval_list(list: &[Expression], env: &mut Environment) -> Result<Expression, String> {
     let first = &list[0];
 
     if let Expression::Symbol(s) = first {

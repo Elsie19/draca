@@ -48,7 +48,7 @@ impl Display for Expression {
                 let formatted_list: Vec<_> = list.iter().map(ToString::to_string).collect();
                 write!(f, "({})", formatted_list.join(" "))
             }
-            Self::Func(_) => write!(f, "<function>"),
+            Self::Func(func) => write!(f, "<{:p}>", *func as *const ()),
             Self::Function(func) => {
                 write!(
                     f,

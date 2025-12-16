@@ -1,16 +1,18 @@
 use std::{borrow::Cow, collections::HashSet};
 
-use ansi_term::Style;
+use ansi_term::{Color, Style};
 use rustyline::{
     CompletionType, Config, Context, EditMode, Editor, Helper, Hinter,
     completion::{Completer, Pair, extract_word},
     error::ReadlineError,
-    highlight::{Highlighter, MatchingBracketHighlighter},
+    highlight::{CmdKind, Highlighter, MatchingBracketHighlighter},
     history::MemHistory,
     validate::{ValidationContext, ValidationResult, Validator},
 };
 
-use crate::{env::Environment, eval::eval, parser::parse};
+use crate::{env::Environment, eval::eval, lisp, parser::parse};
+
+// TODO: Make this less spaghetti.
 
 fn is_break_char(c: char) -> bool {
     [' ', '\t', '\n'].contains(&c)
@@ -41,8 +43,8 @@ impl CommandCompleter {
         let (start, mut word) = extract_word(line, pos, None, is_break_char);
         let pre_cmd = line[..start].trim();
 
-        if word.starts_with("(") {
-            word = word.trim_start_matches("(");
+        if word.starts_with('(') {
+            word = word.trim_start_matches('(');
             starts_with_paren = true;
         }
 
@@ -76,12 +78,23 @@ struct DracaHelper {
     highligher: MatchingBracketHighlighter,
 }
 
+impl DracaHelper {
+    pub fn from_env(env: &Environment) -> Self {
+        Self {
+            cmd_completer: CommandCompleter {
+                cmds: cmd_sets(env),
+            },
+            highligher: MatchingBracketHighlighter::new(),
+        }
+    }
+}
+
 impl Highlighter for DracaHelper {
     fn highlight<'l>(&self, line: &'l str, pos: usize) -> Cow<'l, str> {
         self.highligher.highlight(line, pos)
     }
 
-    fn highlight_char(&self, line: &str, pos: usize, kind: rustyline::highlight::CmdKind) -> bool {
+    fn highlight_char(&self, line: &str, pos: usize, kind: CmdKind) -> bool {
         self.highligher.highlight_char(line, pos, kind)
     }
 
@@ -99,7 +112,7 @@ impl Highlighter for DracaHelper {
 
     fn highlight_candidate<'c>(
         &self,
-        candidate: &'c str, // FIXME: should be Completer::Candidate
+        candidate: &'c str,
         completion: CompletionType,
     ) -> Cow<'c, str> {
         self.highligher.highlight_candidate(candidate, completion)
@@ -136,6 +149,24 @@ impl Completer for DracaHelper {
 
 fn cmd_sets(env: &Environment) -> HashSet<Command> {
     let mut set = HashSet::new();
+
+    // Do internal calls first.
+    for it in [
+        "define",
+        "define/in-namespace",
+        "namespace/symbol",
+        "namespace/as-list",
+        "quote",
+        "eval-file",
+        "require",
+        "deconst-fn",
+        "if",
+    ] {
+        set.insert(Command::new(it, ""));
+        set.insert(Command::new("", it));
+    }
+
+    // Then do user set things.
     for (qualified_path, it) in env.full_path_and_name() {
         set.insert(Command::new(&qualified_path, it));
         set.insert(Command::new(it, &qualified_path));
@@ -148,19 +179,7 @@ fn cmd_sets(env: &Environment) -> HashSet<Command> {
 }
 
 pub fn repl() -> rustyline::Result<()> {
-    let mut env = Environment::empty()
-        .macros_plugin()
-        .sys_plugin()
-        .math_plugin()
-        .cmp_plugin()
-        .build();
-
-    let h = DracaHelper {
-        cmd_completer: CommandCompleter {
-            cmds: cmd_sets(&env),
-        },
-        highligher: MatchingBracketHighlighter::new(),
-    };
+    let mut env = Environment::empty().rust_builtins().stdlib().build();
 
     let config = Config::builder()
         .completion_type(CompletionType::List)
@@ -169,7 +188,7 @@ pub fn repl() -> rustyline::Result<()> {
 
     let mut rl = Editor::<DracaHelper, _>::with_history(config, MemHistory::new())?;
 
-    rl.set_helper(Some(h));
+    rl.set_helper(Some(DracaHelper::from_env(&env)));
 
     println!(
         "Draca REPL {}.\nTo exit, type `(std::sys::exit)` or press `^D`.",
@@ -177,7 +196,7 @@ pub fn repl() -> rustyline::Result<()> {
     );
 
     loop {
-        let readline = rl.readline("\\> ");
+        let readline = rl.readline(&Color::White.bold().paint("\\> ").to_string());
         match readline {
             Ok(line) => {
                 let parsed_list = match parse(line.trim()) {
@@ -195,12 +214,14 @@ pub fn repl() -> rustyline::Result<()> {
                     }
                 }
                 rl.add_history_entry(&line)?;
+                // Make sure we update the environment because the user may have defined something!
+                rl.set_helper(Some(DracaHelper::from_env(&env)));
             }
             Err(ReadlineError::Interrupted) => {
-                println!("^C");
+                eprintln!("^C");
             }
             Err(ReadlineError::Eof) => {
-                println!("^D");
+                eprintln!("^D");
                 break;
             }
             Err(err) => {
