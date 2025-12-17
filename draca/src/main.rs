@@ -8,12 +8,29 @@ mod parser;
 mod repl;
 mod stdlib;
 
+const HELP: &str = "
+draca --help
+
+Usage: draca [-r] [file]
+
+Options:
+    -r      invoke the repl.
+"
+.trim_ascii();
+
 fn main() -> Result<(), Box<dyn Error>> {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
 
     match args.as_slice() {
         [repl] | [repl, ..] if repl == "-r" => Ok(repl::repl()?),
-        [file] => env::run_file(file),
-        _ => unimplemented!("Working on it"),
+        [help] if help == "-h" => {
+            println!("{HELP}");
+            Ok(())
+        }
+        [file] if !file.starts_with('-') => env::run_file(file),
+        _ => {
+            eprintln!("{HELP}");
+            std::process::exit(1)
+        }
     }
 }
