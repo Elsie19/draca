@@ -241,14 +241,17 @@ impl Environment {
         // BOOLEAN LOGIC //
 
         env_insert![self =>
-            ("not", fn => core::cmp::not),
+            ("std::cmp::not", fn => core::cmp::not),
         ];
 
         // LIST FUNCTIONS //
 
+        self.add_scope(["std", "list"].into());
+
         env_insert![self =>
-            ("car", fn => core::list::car),
-            ("cdr", fn => core::list::cdr),
+            ("std::list::car", fn => core::list::car),
+            ("std::list::cdr", fn => core::list::cdr),
+            ("std::list::cons", fn => core::list::cons),
         ];
 
         // MACROS //
