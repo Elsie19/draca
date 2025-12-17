@@ -182,8 +182,8 @@ impl Environment {
         self
     }
 
-    pub fn add_scope(&mut self, ns: Namespace) {
-        self.in_scope.push(ns);
+    pub fn add_scope<T: Into<Namespace>>(&mut self, ns: T) {
+        self.in_scope.push(ns.into());
     }
 
     pub fn insert_item(&mut self, item: NamespaceItem, val: Expression) {
@@ -246,7 +246,7 @@ impl Environment {
 
         // LIST FUNCTIONS //
 
-        self.add_scope(["std", "list"].into());
+        self.add_scope(["std", "list"]);
 
         env_insert![self =>
             ("std::list::car", fn => core::list::car),
@@ -257,9 +257,18 @@ impl Environment {
             ("std::list::empty?", fn => core::list::is_empty),
         ];
 
+        // CONVERSIONS //
+
+        self.add_scope(["std", "conv"]);
+
+        env_insert![self =>
+            ("std::conv::string->list", fn => core::string::as_list),
+            ("std::conv::list->string", fn => core::string::from_list),
+        ];
+
         // MACROS //
 
-        self.add_scope(["std", "macros"].into());
+        self.add_scope(["std", "macros"]);
 
         env_insert![self =>
             ("std::macros::panic",  fn => core::macros::panic),
@@ -275,7 +284,7 @@ impl Environment {
 
         // NUMERICAL COMPARISONS //
 
-        self.add_scope(["std", "cmp"].into());
+        self.add_scope(["std", "cmp"]);
 
         env_insert![self =>
             ("std::cmp::=",   fn => core::cmp::eq),
@@ -288,8 +297,8 @@ impl Environment {
 
         // MATH //
 
-        self.add_scope(["std", "math"].into());
-        self.add_scope(["std", "math", "consts"].into());
+        self.add_scope(["std", "math"]);
+        self.add_scope(["std", "math", "consts"]);
 
         env_insert![self =>
             ("std::math::+",           fn => core::math::add),

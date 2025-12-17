@@ -2,6 +2,7 @@ pub mod cmp;
 pub mod list;
 pub mod macros;
 pub mod math;
+pub mod string;
 pub mod sys;
 
 #[macro_export]

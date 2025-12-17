@@ -81,7 +81,7 @@ pub fn is_empty(args: &[Expression]) -> Result<Expression, String> {
     }
 }
 
-fn extract_list(expr: &Expression) -> Result<Vec<Expression>, String> {
+pub(crate) fn extract_list(expr: &Expression) -> Result<Vec<Expression>, String> {
     match expr {
         Expression::List(lst) => Ok(lst.clone()),
         Expression::Quoted(boxed) => match &**boxed {
