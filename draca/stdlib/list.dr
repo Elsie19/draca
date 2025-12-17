@@ -1,7 +1,8 @@
-(define/in-namespace std::list::rev (define (rev lst)
-  (if (empty? lst)
-      (list)
-      (append (rev (cdr lst))
-              (list (car lst))))))
+(define/in-namespace std::list::rev
+    (define (rev lst)
+        (if (empty? lst)
+        (list)
+        (append (rev (cdr lst))
+            (list (car lst))))))
 
 (require std::list)
