@@ -17,6 +17,7 @@ pub(crate) fn eval_expr(expr: Expression, env: &mut Environment) -> Result<Expre
         | Expression::Number(_)
         | Expression::Func(_)
         | Expression::Quoted(_)
+        | Expression::Nil
         | Expression::String(_) => Ok(expr),
         Expression::Symbol(s) => env
             .get(&s)

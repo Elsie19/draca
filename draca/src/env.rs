@@ -238,6 +238,12 @@ impl Environment {
     }
 
     pub fn core(mut self) -> Self {
+        // BOOLEAN LOGIC //
+
+        env_insert![self =>
+            ("not", fn => core::cmp::not),
+        ];
+
         // MACROS //
 
         self.add_scope(["std", "macros"].into());

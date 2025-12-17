@@ -13,15 +13,23 @@ pub enum Expression {
     List(Vec<Expression>),
     Func(fn(&[Expression]) -> std::result::Result<Expression, String>),
     Function(Procedure),
+    Nil,
     Quoted(Box<Expression>),
 }
 
 impl Expression {
     pub fn fmt_string(&self) -> String {
         match self {
-            Self::Bool(b) => b.to_string(),
+            Self::Bool(b) => {
+                if *b {
+                    String::from("#t")
+                } else {
+                    String::from("#f")
+                }
+            }
             Self::Number(n) => n.to_string(),
             Self::String(s) => s.to_string(),
+            Self::Nil => String::from("nil"),
             Self::Quoted(fmt) => format!("'{}", fmt.fmt_string()),
             Self::List(lst) => format!(
                 "({})",
@@ -40,9 +48,10 @@ impl Expression {
 impl Display for Expression {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Bool(b) => write!(f, "{b}"),
+            Self::Bool(b) => write!(f, "{}", if *b { "#t" } else { "#f" }),
             Self::Number(n) => write!(f, "{n}"),
             Self::Symbol(s) => write!(f, "{s}"),
+            Self::Nil => write!(f, "nil"),
             Self::String(s) => write!(f, "\"{s}\""),
             Self::List(list) => {
                 let formatted_list: Vec<_> = list.iter().map(ToString::to_string).collect();
@@ -108,6 +117,18 @@ impl Parse {
         Ok(input.as_str().to_string())
     }
 
+    fn nil(_input: Node) -> Result<Expression> {
+        Ok(Expression::Nil)
+    }
+
+    fn bool(input: Node) -> Result<Expression> {
+        Ok(Expression::Bool(match input.as_str() {
+            "#t" => true,
+            "#f" => false,
+            _ => unreachable!("Should be defined in grammar.pest"),
+        }))
+    }
+
     fn quoted(input: Node) -> Result<Expression> {
         Ok(match_nodes!(input.into_children();
             [form(fm)] => Expression::Quoted(Box::new(fm)),
@@ -124,6 +145,8 @@ impl Parse {
         Ok(match_nodes!(input.into_children();
             [number(n)] => Expression::Number(n),
             [quoted(q)] => q,
+            [nil(n)] => n,
+            [bool(b)] => b,
             [string(s)] => Expression::String(s),
             [symbol(s)] => Expression::Symbol(s),
             [list(l)] => l,

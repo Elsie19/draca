@@ -1,3 +1,5 @@
+use std::ops::Not;
+
 use crate::parser::Expression;
 
 type Ret = Result<Expression, String>;
@@ -6,13 +8,9 @@ macro_rules! impl_cmp_ops {
     ($(($name:tt, $draca:expr)),* $(,)?) => {
         $(
             pub fn $name(args: &[Expression]) -> Ret {
-                if args.len() != 2 {
-                    return Err(format!("`{}` requires two arguments", stringify!($draca)));
-                }
-
                 match args {
                     [first, second] => Ok(Expression::Bool(first.$name(second))),
-                    _ => unreachable!("We checked above"),
+                    _ => Err(format!("`{}` requires two arguments", stringify!($draca))),
                 }
             }
         )*
@@ -27,3 +25,14 @@ impl_cmp_ops![
     (ge, ">="),
     (le, "<="),
 ];
+
+pub fn not(args: &[Expression]) -> Ret {
+    match args {
+        [first] | [first, ..] => match first {
+            Expression::Nil => Ok(Expression::Nil),
+            Expression::Bool(b) => Ok(Expression::Bool(b.not())),
+            _ => Err("`not` expects either a `nil` or a `bool`".into()),
+        },
+        _ => Err("`not` requires a single argument".into()),
+    }
+}

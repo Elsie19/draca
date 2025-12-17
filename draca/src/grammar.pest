@@ -5,6 +5,8 @@ form = {
   | quoted
   | string
   | number
+  | nil
+  | bool
   | symbol
 }
 
@@ -37,6 +39,10 @@ str_char = _{
   | "\\\\"
   | !"\"" ~ ANY
 }
+
+nil = @{ "nil" }
+
+bool = @{ "#t" | "#f" }
 
 COMMENT = _{
     ";" ~ (!NEWLINE ~ ANY)* ~ (NEWLINE | EOI)
