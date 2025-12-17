@@ -252,6 +252,9 @@ impl Environment {
             ("std::list::car", fn => core::list::car),
             ("std::list::cdr", fn => core::list::cdr),
             ("std::list::cons", fn => core::list::cons),
+            ("std::list::append", fn => core::list::append),
+            ("std::list::list", fn => core::list::list),
+            ("std::list::empty?", fn => core::list::is_empty),
         ];
 
         // MACROS //

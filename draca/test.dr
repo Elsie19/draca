@@ -3,3 +3,11 @@
 (define x 50)
 
 (println "{0}" x)
+
+(define (rev lst)
+  (if (empty? lst)
+      (list)
+      (append (rev (cdr lst))
+              (list (car lst)))))
+
+(println "{0}" (rev '(1 2 3 4)))
