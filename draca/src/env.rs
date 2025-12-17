@@ -4,7 +4,9 @@ use std::fmt::Display;
 
 use crate::eval::eval;
 use crate::parser::parse;
-use crate::{lisp, parser::Expression, stdlib};
+use crate::{core, lisp, parser::Expression};
+
+const STDLIB: &str = include_str!(concat!(env!("OUT_DIR"), "/stdlib.dr"));
 
 macro_rules! env_insert {
     ($env:expr => $($entry:tt),* $(,)?) => {
@@ -235,21 +237,21 @@ impl Environment {
         None
     }
 
-    pub fn rust_builtins(mut self) -> Self {
+    pub fn core(mut self) -> Self {
         // MACROS //
 
         self.add_scope(["std", "macros"].into());
 
         env_insert![self =>
-            ("std::macros::panic",  fn => stdlib::macros::panic),
-            ("std::macros::format",  fn => stdlib::macros::format),
-            ("std::macros::println",  fn => stdlib::macros::println),
+            ("std::macros::panic",  fn => core::macros::panic),
+            ("std::macros::format",  fn => core::macros::format),
+            ("std::macros::println",  fn => core::macros::println),
         ];
 
         // SYSTEM COMPONENTS //
 
         env_insert![self =>
-            ("std::sys::exit",  fn => stdlib::sys::exit),
+            ("std::sys::exit",  fn => core::sys::exit),
         ];
 
         // NUMERICAL COMPARISONS //
@@ -257,12 +259,12 @@ impl Environment {
         self.add_scope(["std", "cmp"].into());
 
         env_insert![self =>
-            ("std::cmp::=",   fn => stdlib::cmp::eq),
-            ("std::cmp::/=",  fn => stdlib::cmp::ne),
-            ("std::cmp::>",   fn => stdlib::cmp::gt),
-            ("std::cmp::<",   fn => stdlib::cmp::lt),
-            ("std::cmp::>=",  fn => stdlib::cmp::ge),
-            ("std::cmp::<=",  fn => stdlib::cmp::le),
+            ("std::cmp::=",   fn => core::cmp::eq),
+            ("std::cmp::/=",  fn => core::cmp::ne),
+            ("std::cmp::>",   fn => core::cmp::gt),
+            ("std::cmp::<",   fn => core::cmp::lt),
+            ("std::cmp::>=",  fn => core::cmp::ge),
+            ("std::cmp::<=",  fn => core::cmp::le),
         ];
 
         // MATH //
@@ -271,12 +273,12 @@ impl Environment {
         self.add_scope(["std", "math", "consts"].into());
 
         env_insert![self =>
-            ("std::math::+",           fn => stdlib::math::add),
-            ("std::math::-",           fn => stdlib::math::sub),
-            ("std::math::*",           fn => stdlib::math::mul),
-            ("std::math::/",           fn => stdlib::math::div),
-            ("std::math::rem",         fn => stdlib::math::rem),
-            ("std::math::pow",         fn => stdlib::math::pow),
+            ("std::math::+",           fn => core::math::add),
+            ("std::math::-",           fn => core::math::sub),
+            ("std::math::*",           fn => core::math::mul),
+            ("std::math::/",           fn => core::math::div),
+            ("std::math::rem",         fn => core::math::rem),
+            ("std::math::pow",         fn => core::math::pow),
             ("std::math::consts::pi",  const => Expression::Number(PI)),
             ("std::math::consts::e",   const => Expression::Number(E)),
         ];
@@ -285,15 +287,11 @@ impl Environment {
     }
 
     pub fn stdlib(mut self) -> Self {
-        self.add_scope(["std", "math", "fns"].into());
+        let parsed_stdlib = parse(STDLIB.trim()).expect("stdlib is broken");
 
-        let square = lisp!("(define (square x) (* x x))", &mut self);
-        let abs = lisp!("(define (abs x) (if (< x 0) (- x) x))", &mut self);
-
-        env_insert![self =>
-            ("std::math::fns::square", const => square),
-            ("std::math::fns::abs",    const => abs),
-        ];
+        for expr in parsed_stdlib {
+            let _ = eval(expr, &mut self);
+        }
 
         self
     }
@@ -308,7 +306,7 @@ pub fn run_file(path: &str) -> Result<(), Box<dyn std::error::Error>> {
 
     let parsed = parse(text.trim())?;
 
-    let mut env = Environment::empty().rust_builtins().stdlib().build();
+    let mut env = Environment::empty().core().stdlib().build();
 
     for expr in parsed {
         eval(expr, &mut env)?;

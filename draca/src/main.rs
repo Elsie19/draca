@@ -2,11 +2,11 @@
 
 use std::error::Error;
 
+mod core;
 mod env;
 mod eval;
 mod parser;
 mod repl;
-mod stdlib;
 
 const HELP: &str = "
 draca --help

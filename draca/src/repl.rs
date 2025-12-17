@@ -180,7 +180,7 @@ fn cmd_sets(env: &Environment) -> HashSet<Command> {
 }
 
 pub fn repl() -> rustyline::Result<()> {
-    let mut env = Environment::empty().rust_builtins().stdlib().build();
+    let mut env = Environment::empty().core().stdlib().build();
 
     let config = Config::builder()
         .completion_type(CompletionType::List)

@@ -1,0 +1,7 @@
+(define/in-namespace std::math::fns::abs
+    (define (abs x)
+        (if (< x 0)
+            (- x)
+            x)))
+
+(require std::math::fns)
