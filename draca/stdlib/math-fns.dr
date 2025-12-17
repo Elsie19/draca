@@ -4,4 +4,8 @@
             (- x)
             x)))
 
+(define/in-namespace std::math::fns::square
+    (define (square x)
+        (* x x)))
+
 (require std::math::fns)

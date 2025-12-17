@@ -40,6 +40,7 @@ str_char = _{
 
 COMMENT = _{
     ";" ~ (!NEWLINE ~ ANY)* ~ (NEWLINE | EOI)
+  | "#|" ~ (!"|#" ~ ANY)* ~ "|#"
 }
 
 WHITESPACE = _{ " " | "\t" | NEWLINE }
