@@ -1,4 +1,5 @@
 pub mod cmp;
+pub mod list;
 pub mod macros;
 pub mod math;
 pub mod sys;
@@ -9,4 +10,9 @@ macro_rules! lisp {
         let ast = $crate::parser::parse($code.trim()).expect("Could not parse text!!!");
         $crate::eval::eval_expr(ast.first().unwrap().clone(), $env).expect("Could not eval!!!")
     }};
+}
+
+#[macro_export]
+macro_rules! empty_quoted_list {
+    () => {{ $crate::parser::Expression::Quoted(Box::new($crate::parser::Expression::List(vec![]))) }};
 }

@@ -174,7 +174,7 @@ impl Environment {
 
     pub fn values(&self) -> Vec<&str> {
         let keys = self.contents.keys();
-        keys.into_iter().map(|key| key.target()).collect()
+        keys.into_iter().map(NamespaceItem::target).collect()
     }
 
     pub fn with_scope(mut self, ns: Namespace) -> Self {
@@ -242,6 +242,13 @@ impl Environment {
 
         env_insert![self =>
             ("not", fn => core::cmp::not),
+        ];
+
+        // LIST FUNCTIONS //
+
+        env_insert![self =>
+            ("car", fn => core::list::car),
+            ("cdr", fn => core::list::cdr),
         ];
 
         // MACROS //
