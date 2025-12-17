@@ -91,3 +91,36 @@ pub(crate) fn extract_list(expr: &Expression) -> Result<Vec<Expression>, String>
         _ => Err("expected a list".into()),
     }
 }
+
+#[cfg(test)]
+mod test {
+    use std::sync::{Mutex, OnceLock};
+
+    use crate::{env::Environment, lisp};
+
+    use super::*;
+
+    static ENV: OnceLock<Mutex<Environment>> = OnceLock::new();
+
+    fn setup_env() -> &'static Mutex<Environment> {
+        ENV.get_or_init(|| Mutex::new(Environment::empty().core().stdlib().build()))
+    }
+
+    #[test]
+    fn car() {
+        let env = setup_env();
+        let mut env = env.lock().unwrap();
+        let list = lisp!("(list 1 2 3)", &mut env);
+
+        assert_eq!(super::car(&[list]).unwrap(), Expression::Number(1.0));
+    }
+
+    #[test]
+    fn cdr() {
+        let env = setup_env();
+        let mut env = env.lock().unwrap();
+        let list = lisp!("(list 1 2 3)", &mut env);
+
+        assert_eq!(super::cdr(&[list]).unwrap(), lisp!("(list 2 3)", &mut env));
+    }
+}
