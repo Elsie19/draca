@@ -1,3 +1,5 @@
 (define/in-namespace std::math-fns::fact (define (fact n) (if (<= n 1) 1 (* n (fact (- n 1))))))
 
 (define x 50)
+
+(println "{0}" x)

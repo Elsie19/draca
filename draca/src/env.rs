@@ -2,6 +2,8 @@ use std::collections::BTreeMap;
 use std::f64::consts::{E, PI};
 use std::fmt::Display;
 
+use crate::eval::eval;
+use crate::parser::parse;
 use crate::{lisp, parser::Expression, stdlib};
 
 macro_rules! env_insert {
@@ -299,4 +301,18 @@ impl Environment {
     pub fn build(self) -> Self {
         self
     }
+}
+
+pub fn run_file(path: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let text = std::fs::read_to_string(path)?;
+
+    let parsed = parse(text.trim())?;
+
+    let mut env = Environment::empty().rust_builtins().stdlib().build();
+
+    for expr in parsed {
+        eval(expr, &mut env)?;
+    }
+
+    Ok(())
 }

@@ -10,7 +10,7 @@ use rustyline::{
     validate::{ValidationContext, ValidationResult, Validator},
 };
 
-use crate::{env::Environment, eval::eval, lisp, parser::parse};
+use crate::{env::Environment, eval::eval, parser::parse};
 
 // TODO: Make this less spaghetti.
 
@@ -196,8 +196,10 @@ pub fn repl() -> rustyline::Result<()> {
         env!("CARGO_PKG_VERSION")
     );
 
+    let prompt = Color::White.bold().paint("\\> ").to_string();
+
     loop {
-        let readline = rl.readline(&Color::White.bold().paint("\\> ").to_string());
+        let readline = rl.readline(&prompt);
         match readline {
             Ok(line) => {
                 let parsed_list = match parse(line.trim()) {
