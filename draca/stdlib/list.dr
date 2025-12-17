@@ -1,7 +1,7 @@
 (define/in-namespace std::list::rev
     (define (rev lst)
         (if (empty? lst)
-        (list)
+        lst
         (append (rev (cdr lst))
             (list (car lst))))))
 

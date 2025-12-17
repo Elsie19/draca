@@ -4,7 +4,7 @@ use std::fmt::Display;
 
 use crate::eval::eval;
 use crate::parser::parse;
-use crate::{core, lisp, parser::Expression};
+use crate::{core, parser::Expression};
 
 const STDLIB: &str = include_str!(concat!(env!("OUT_DIR"), "/stdlib.dr"));
 
@@ -31,6 +31,7 @@ pub struct Namespace {
     frags: Vec<String>,
 }
 
+#[allow(dead_code)]
 impl Namespace {
     pub fn new<I, T>(it: I) -> Self
     where
@@ -114,6 +115,7 @@ impl From<&str> for NamespaceItem {
     }
 }
 
+#[allow(dead_code)]
 impl NamespaceItem {
     pub fn from_str(value: &str) -> Self {
         Self::from(value)
@@ -153,6 +155,7 @@ pub struct Environment {
     in_scope: Vec<Namespace>,
 }
 
+#[allow(dead_code)]
 impl Environment {
     pub fn empty() -> Self {
         Self {
@@ -255,6 +258,7 @@ impl Environment {
             ("std::list::append", fn => core::list::append),
             ("std::list::list", fn => core::list::list),
             ("std::list::empty?", fn => core::list::is_empty),
+            ("std::list::len", fn => core::list::len),
         ];
 
         // CONVERSIONS //

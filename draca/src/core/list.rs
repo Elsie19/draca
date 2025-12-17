@@ -1,4 +1,4 @@
-use crate::{empty_quoted_list, parser::Expression};
+use crate::{empty_quoted_list, num, parser::Expression};
 
 pub fn car(args: &[Expression]) -> Result<Expression, String> {
     match args {
@@ -16,7 +16,14 @@ pub fn car(args: &[Expression]) -> Result<Expression, String> {
 
 pub fn cdr(args: &[Expression]) -> Result<Expression, String> {
     match args {
-        [first, ..] => match first {
+        [Expression::List(lst), ..] => {
+            if lst.is_empty() {
+                Ok(Expression::Nil)
+            } else {
+                Ok(Expression::List(lst[1..].to_vec()))
+            }
+        }
+        [Expression::Quoted(quote), ..] => match &**quote {
             Expression::List(lst) => {
                 if lst.is_empty() {
                     Ok(Expression::Nil)
@@ -24,16 +31,6 @@ pub fn cdr(args: &[Expression]) -> Result<Expression, String> {
                     Ok(Expression::List(lst[1..].to_vec()))
                 }
             }
-            Expression::Quoted(quote) => match &**quote {
-                Expression::List(lst) => {
-                    if lst.is_empty() {
-                        Ok(Expression::Nil)
-                    } else {
-                        Ok(Expression::List(lst[1..].to_vec()))
-                    }
-                }
-                _ => Ok(Expression::Nil),
-            },
             _ => Ok(Expression::Nil),
         },
         _ => Err("`cdr` requires one argument".into()),
@@ -78,6 +75,14 @@ pub fn is_empty(args: &[Expression]) -> Result<Expression, String> {
             _ => Ok(Expression::Bool(false)),
         },
         _ => Ok(Expression::Bool(false)),
+    }
+}
+
+pub fn len(args: &[Expression]) -> Result<Expression, String> {
+    match args {
+        [first] => Ok(num!(extract_list(first)?.len() as f64)),
+        [_, rest @ ..] => Ok(num!(rest.len() as f64 + 1.0)),
+        _ => Ok(num!(0.0)),
     }
 }
 

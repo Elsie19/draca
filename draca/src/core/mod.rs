@@ -17,3 +17,8 @@ macro_rules! lisp {
 macro_rules! empty_quoted_list {
     () => {{ $crate::parser::Expression::Quoted(Box::new($crate::parser::Expression::List(vec![]))) }};
 }
+
+#[macro_export]
+macro_rules! num {
+    ($num:expr) => {{ $crate::parser::Expression::Number($num) }};
+}

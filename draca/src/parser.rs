@@ -4,6 +4,7 @@ use pest_consume::{Parser, match_nodes};
 
 use crate::env::Environment;
 
+#[allow(unpredictable_function_pointer_comparisons)]
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum Expression {
     Bool(bool),
