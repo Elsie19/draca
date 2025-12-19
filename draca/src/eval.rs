@@ -188,11 +188,11 @@ fn eval_define_namespace(list: &[Expression], env: &mut Environment) -> Result<E
 
             eval_define(&rewritten, &mut inner_env)?;
 
-            let Some(bound) = inner_env.get(&full_name) else {
+            let Some(bound) = inner_env.get(&full_name).cloned() else {
                 return Err(format!("Inner define made no binding for {full_name}"));
             };
 
-            env.insert(full_sym, bound.clone());
+            env.insert(full_sym, bound);
             Ok(Expression::Symbol(full_name))
         }
 
