@@ -308,43 +308,43 @@ fn eval_file(list: &[Expression], env: &mut Environment) -> Result<Expression, S
 }
 
 fn eval_if(list: &[Expression], env: &mut Environment) -> Result<Expression, String> {
-    let [cond, then_, else_] = list else {
-        return Err("`if` requires three arguments".into());
-    };
-
-    match eval_expr(cond.clone(), env)? {
-        Expression::Bool(true) => eval_expr(then_.clone(), env),
-        Expression::Bool(false) => eval_expr(else_.clone(), env),
-        _ => Err("Invalid condition in if expression".into()),
+    match list {
+        [cond, then_, else_] => match eval_expr(cond.clone(), env)? {
+            Expression::Bool(true) => eval_expr(then_.clone(), env),
+            Expression::Bool(false) => eval_expr(else_.clone(), env),
+            _ => Err("Invalid condition in if expression".into()),
+        },
+        _ => Err("`if` requires three arguments".into()),
     }
 }
 
 fn eval_let(list: &[Expression], env: &mut Environment) -> Result<Expression, String> {
-    let Expression::List(bindings) = &list[0] else {
-        return Err("`let` bindings must be a list".into());
-    };
+    match list {
+        [Expression::List(bindings), rest @ ..] => {
+            let mut local_env = env.clone();
 
-    let mut local_env = env.clone();
+            for binding in bindings {
+                match binding {
+                    Expression::List(pair) => match &pair[..] {
+                        [Expression::Symbol(name), value] => {
+                            let val = eval_expr(value.clone(), env)?;
+                            local_env.insert(NamespaceItem::from_str(name), val);
+                        }
+                        _ => return Err("Invalid `let` binding. Must be (`symbol` `value`)".into()),
+                    },
+                    _ => return Err("Invalid `let` binding. Must be `(list)`".into()),
+                }
+            }
 
-    for binding in bindings {
-        let Expression::List(pair) = binding else {
-            return Err("Invalid `let` binding".into());
-        };
+            let mut result = Expression::Bool(false);
+            for expr in rest {
+                result = eval_expr(expr.clone(), &mut local_env)?;
+            }
 
-        let [Expression::Symbol(name), value] = &pair[..] else {
-            return Err("Invalid `let` binding".into());
-        };
-
-        let val = eval_expr(value.clone(), env)?;
-        local_env.insert(NamespaceItem::from_str(name), val);
+            Ok(result)
+        }
+        _ => Err("`let` bindings must be a list".into()),
     }
-
-    let mut result = Expression::Bool(false);
-    for expr in &list[1..] {
-        result = eval_expr(expr.clone(), &mut local_env)?;
-    }
-
-    Ok(result)
 }
 
 fn eval_lambda(list: &[Expression], env: &mut Environment) -> Result<Expression, String> {
