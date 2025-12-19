@@ -19,6 +19,21 @@ pub enum Expression {
 }
 
 impl Expression {
+    pub fn symbol<T: Into<String>>(symbol: T) -> Self {
+        Self::Symbol(symbol.into())
+    }
+
+    pub fn string<T: Into<String>>(string: T) -> Self {
+        Self::String(string.into())
+    }
+
+    pub fn list<I>(iter: I) -> Self
+    where
+        I: IntoIterator<Item = Expression>,
+    {
+        Self::List(iter.into_iter().collect())
+    }
+
     pub fn fmt_string(&self) -> String {
         match self {
             Self::Bool(b) => {

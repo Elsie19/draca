@@ -39,7 +39,7 @@ pub(crate) fn eval_list(list: &[Expression], env: &mut Environment) -> Result<Ex
         "define/in-namespace" => eval_define_namespace(list, env),
         "namespace/symbol" => eval_symbol_namespace(list, env),
         "namespace/as-list" => eval_symbol_namespace_as_list(list, env),
-        "quote" => eval_quote(list, env),
+        "quote" => eval_quote(&list[1..], env),
         "eval-file" => eval_file(list, env),
         "require" => eval_require(list, env),
         "deconst-fn" => eval_deconst_fn(list, env),
@@ -103,25 +103,35 @@ fn eval_define(list: &[Expression], env: &mut Environment) -> Result<Expression,
     }
 
     match &list[1] {
+        // (define name expr)
+        Expression::Symbol(name) => {
+            let value = eval_expr(list[2].clone(), env)?;
+            env.insert(NamespaceItem::from_str(name), value);
+            Ok(Expression::Symbol(name.clone()))
+        }
+
+        // (define (f args...) body...)
         Expression::List(func) => {
             let Some(Expression::Symbol(name)) = func.first() else {
                 return Err("Invalid define syntax".into());
             };
 
-            let proc = Procedure {
-                params: func[1..].to_vec(),
-                body: list[2..].to_vec(),
-                env: env.clone(),
-            };
+            let lambda = Expression::List({
+                let mut v = Vec::with_capacity(list.len());
+                v.push(Expression::symbol("lambda"));
+                v.push(Expression::List(func[1..].to_vec()));
+                v.extend_from_slice(&list[2..]);
+                v
+            });
 
-            env.insert(NamespaceItem::from_str(name), Expression::Function(proc));
-            Ok(Expression::Symbol(name.clone()))
-        }
-
-        Expression::Symbol(name) => {
-            let value = eval_expr(list[2].clone(), env)?;
-            env.insert(NamespaceItem::from_str(name), value);
-            Ok(Expression::Symbol(name.clone()))
+            eval_define(
+                &[
+                    Expression::Symbol("define".into()),
+                    Expression::Symbol(name.clone()),
+                    lambda,
+                ],
+                env,
+            )
         }
 
         _ => Err("Invalid define syntax".into()),
@@ -231,7 +241,7 @@ fn eval_symbol_namespace_as_list(
 }
 
 fn eval_quote(list: &[Expression], _env: &mut Environment) -> Result<Expression, String> {
-    Ok(list[1].clone())
+    Ok(list[0].clone())
 }
 
 fn eval_require(list: &[Expression], env: &mut Environment) -> Result<Expression, String> {
