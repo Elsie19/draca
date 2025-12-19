@@ -16,7 +16,7 @@ pub(crate) fn eval_expr(expr: Expression, env: &mut Environment) -> Result<Expre
         Expression::Bool(_)
         | Expression::Number(_)
         | Expression::Func(_)
-        | Expression::Quoted(_)
+        | Expression::Quoted(_) // Pass as is.
         | Expression::Nil
         | Expression::String(_) => Ok(expr),
         Expression::Symbol(s) => env
@@ -43,6 +43,7 @@ pub(crate) fn eval_list(list: &[Expression], env: &mut Environment) -> Result<Ex
             "deconst-fn" => eval_deconst_fn(list, env),
             "if" => eval_if(list, env),
             "let" => eval_let(list, env),
+            "lambda" => eval_lambda(list, env),
             _ => {
                 if let Some(exp) = env.get(s) {
                     match exp {
@@ -229,10 +230,6 @@ fn eval_quote(list: &[Expression], _env: &mut Environment) -> Result<Expression,
 }
 
 fn eval_require(list: &[Expression], env: &mut Environment) -> Result<Expression, String> {
-    if list.len() != 2 {
-        return Err("`require` requires at least 1 argument".into());
-    }
-
     match list {
         [_, path] => match path {
             Expression::Symbol(sym) => {
@@ -241,19 +238,15 @@ fn eval_require(list: &[Expression], env: &mut Environment) -> Result<Expression
             }
             _ => Err("Expected symbol".into()),
         },
-        _ => unreachable!("We checked above"),
+        _ => Err("`require` requires at least 1 argument".into()),
     }
 }
 
 fn eval_deconst_fn(list: &[Expression], env: &mut Environment) -> Result<Expression, String> {
-    if list.len() != 2 {
-        return Err("`deconst-fn` requires at least 1 argument".into());
-    }
-
     match list {
-        [_, fn_] => {
-            if let Expression::Symbol(fn_) = fn_ {
-                match env.get(fn_) {
+        [_, func] => {
+            if let Expression::Symbol(func) = func {
+                match env.get(func) {
                     Some(got) => {
                         println!("{}", got);
                         Ok(Expression::Bool(true))
@@ -264,15 +257,11 @@ fn eval_deconst_fn(list: &[Expression], env: &mut Environment) -> Result<Express
                 Err("`deconst-fn` requires a symbol".into())
             }
         }
-        _ => unreachable!("We checked above"),
+        _ => Err("`deconst-fn` requires at least 1 argument".into()),
     }
 }
 
 fn eval_file(list: &[Expression], env: &mut Environment) -> Result<Expression, String> {
-    if list.len() != 2 {
-        return Err("`eval-file` requires at least 1 argument".into());
-    }
-
     match list {
         [_, path] => {
             if let Expression::Symbol(path) = path {
@@ -296,22 +285,18 @@ fn eval_file(list: &[Expression], env: &mut Environment) -> Result<Expression, S
                 Err("eval-files requires a symbol".into())
             }
         }
-        _ => unreachable!("We checked above"),
+        _ => Err("`eval-file` requires at least 1 argument".into()),
     }
 }
 
 fn eval_if(list: &[Expression], env: &mut Environment) -> Result<Expression, String> {
-    if list.len() < 4 {
-        return Err("`if` requires at least three arguments".into());
-    }
-
     match list {
         [_, condition, then, else_] => match eval_expr(condition.clone(), env)? {
             Expression::Bool(true) => eval_expr(then.clone(), env),
             Expression::Bool(false) => eval_expr(else_.clone(), env),
             _ => Err("Invalid condition in if expression".into()),
         },
-        _ => unreachable!("Checked above"),
+        _ => Err("`if` requires at least three arguments".into()),
     }
 }
 
@@ -349,4 +334,29 @@ fn eval_let(list: &[Expression], env: &mut Environment) -> Result<Expression, St
     }
 
     Ok(result)
+}
+
+fn eval_lambda(list: &[Expression], env: &mut Environment) -> Result<Expression, String> {
+    if list.len() < 3 {
+        return Err("`lambda` requires parameters and a body".into());
+    }
+
+    let params = match &list[1] {
+        Expression::List(p) => p.clone(),
+        _ => return Err("`lambda` parameter list must be a list".into()),
+    };
+
+    for param in &params {
+        if !matches!(param, Expression::Symbol(_)) {
+            return Err("`lambda` parameters must be symbols".into());
+        }
+    }
+
+    let body = list[2..].to_vec();
+
+    Ok(Expression::Function(Procedure {
+        params,
+        body,
+        env: env.clone(),
+    }))
 }
