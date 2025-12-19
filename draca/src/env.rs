@@ -311,8 +311,11 @@ impl Environment {
             ("std::math::/",           fn => core::math::div),
             ("std::math::rem",         fn => core::math::rem),
             ("std::math::pow",         fn => core::math::pow),
+            ("std::math::ash",         fn => core::math::ash),
             ("std::math::consts::pi",  const => Expression::Number(PI)),
             ("std::math::consts::e",   const => Expression::Number(E)),
+            ("std::math::consts::NUM-MAX",   const => Expression::Number(f64::MAX)),
+            ("std::math::consts::NUM-MIN",   const => Expression::Number(f64::MIN)),
         ];
 
         self
