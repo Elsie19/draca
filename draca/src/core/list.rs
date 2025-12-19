@@ -66,21 +66,21 @@ pub fn list(args: &[Expression]) -> Result<Expression, String> {
 }
 
 pub fn is_empty(args: &[Expression]) -> Result<Expression, String> {
-    match args {
-        [Expression::List(lst)] => Ok(Expression::Bool(lst.is_empty())),
-        [Expression::Nil] => Ok(Expression::Bool(true)),
-        [Expression::Quoted(q)] => match &**q {
-            Expression::List(lst) => Ok(Expression::Bool(lst.is_empty())),
-            Expression::Nil => Ok(Expression::Bool(true)),
-            _ => Ok(Expression::Bool(false)),
-        },
-        _ => Ok(Expression::Bool(false)),
-    }
+    Ok(match args {
+        [Expression::List(lst)] | [Expression::Quoted(box Expression::List(lst))] => {
+            Expression::Bool(lst.is_empty())
+        }
+        [Expression::Nil] => Expression::Bool(true),
+        [Expression::Quoted(box Expression::Nil)] => Expression::Bool(true),
+        _ => Expression::Bool(false),
+    })
 }
 
 pub fn len(args: &[Expression]) -> Result<Expression, String> {
     match args {
         [first] => Ok(num!(extract_list(first)?.len() as f64)),
+        // NOTE: Special Draca case where if there are multiple arguments, `len` will give the
+        // count of the arguments.
         [_, rest @ ..] => Ok(num!(rest.len() as f64 + 1.0)),
         _ => Ok(num!(0.0)),
     }

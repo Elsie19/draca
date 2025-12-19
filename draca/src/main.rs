@@ -1,3 +1,5 @@
+#![feature(box_patterns)]
+
 // Uses <https://github.com/chrischiedo/rustyscm> as a base.
 
 use std::error::Error;
