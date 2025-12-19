@@ -29,26 +29,59 @@ pub(crate) fn eval_expr(expr: Expression, env: &mut Environment) -> Result<Expre
 }
 
 pub(crate) fn eval_list(list: &[Expression], env: &mut Environment) -> Result<Expression, String> {
-    let Expression::Symbol(head) = &list[0] else {
-        eprintln!("{:?}", list[0]);
-        return Err("Expected a symbol".into());
-    };
+    if list.is_empty() {
+        return Err("Cannot evaluate empty list".into());
+    }
 
-    let args_sans_head = &list[1..];
+    match &list[0] {
+        Expression::Symbol(head) => {
+            let args_sans_head = &list[1..];
+            match head.as_str() {
+                "define" => eval_define(args_sans_head, env),
+                "define/in-namespace" => eval_define_namespace(args_sans_head, env),
+                "namespace/symbol" => eval_symbol_namespace(args_sans_head, env),
+                "namespace/as-list" => Ok(eval_symbol_namespace_as_list(env)),
+                "quote" => Ok(eval_quote(args_sans_head)),
+                "eval-file" => eval_file(args_sans_head, env),
+                "require" => eval_require(args_sans_head, env),
+                "deconst-fn" => eval_deconst_fn(args_sans_head, env),
+                "if" => eval_if(args_sans_head, env),
+                "let" => eval_let(args_sans_head, env),
+                "lambda" => eval_lambda(args_sans_head, env),
+                _ => apply_function(head, args_sans_head, env),
+            }
+        }
+        other => {
+            // Head is not a symbol; evaluate it as a function expression
+            let func = eval_expr(other.clone(), env)?;
+            let args = list[1..]
+                .iter()
+                .map(|e| eval_expr(e.clone(), env))
+                .collect::<Result<Vec<_>, _>>()?;
 
-    match head.as_str() {
-        "define" => eval_define(args_sans_head, env),
-        "define/in-namespace" => eval_define_namespace(args_sans_head, env),
-        "namespace/symbol" => eval_symbol_namespace(args_sans_head, env),
-        "namespace/as-list" => Ok(eval_symbol_namespace_as_list(env)),
-        "quote" => Ok(eval_quote(args_sans_head)),
-        "eval-file" => eval_file(args_sans_head, env),
-        "require" => eval_require(args_sans_head, env),
-        "deconst-fn" => eval_deconst_fn(args_sans_head, env),
-        "if" => eval_if(args_sans_head, env),
-        "let" => eval_let(args_sans_head, env),
-        "lambda" => eval_lambda(args_sans_head, env),
-        _ => apply_function(head, args_sans_head, env),
+            match func {
+                Expression::Func(f) => f(&args),
+                Expression::Function(proc) => {
+                    let mut local_env = proc.env.clone();
+
+                    // Bind parameters
+                    for (param, arg) in proc.params.iter().zip(args) {
+                        let Expression::Symbol(p) = param else {
+                            return Err("Invalid parameter name in lambda".into());
+                        };
+                        local_env.insert(NamespaceItem::from_str(p), arg);
+                    }
+
+                    // Evaluate body
+                    let mut result = Expression::Bool(false);
+                    for expr in &proc.body {
+                        result = eval_expr(expr.clone(), &mut local_env)?;
+                    }
+                    Ok(result)
+                }
+                _ => Err("Head of list is not a function".into()),
+            }
+        }
     }
 }
 
