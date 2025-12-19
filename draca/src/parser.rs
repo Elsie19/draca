@@ -44,7 +44,7 @@ impl Expression {
                 }
             }
             Self::Number(n) => n.to_string(),
-            Self::String(s) => s.to_string(),
+            Self::String(s) => s.clone(),
             Self::Nil => String::from("nil"),
             Self::Quoted(fmt) => format!("'{}", fmt.fmt_string()),
             Self::List(lst) => format!(
@@ -56,7 +56,7 @@ impl Expression {
             ),
             Self::Function(_) => String::from("<function>"),
             Self::Func(_) => String::from("<fn>"),
-            Self::Symbol(s) => s.to_string(),
+            Self::Symbol(s) => s.clone(),
         }
     }
 }

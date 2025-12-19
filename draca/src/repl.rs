@@ -58,9 +58,9 @@ impl CommandCompleter {
                     } else {
                         hint.cmd.clone()
                     }
-                    .to_string();
+                    .clone();
                     Some(Pair {
-                        display: hint.cmd.to_string(),
+                        display: hint.cmd.clone(),
                         replacement,
                     })
                 } else {
@@ -161,6 +161,8 @@ fn cmd_sets(env: &Environment) -> HashSet<Command> {
         "require",
         "deconst-fn",
         "if",
+        "lambda",
+        "list",
         "let",
     ] {
         set.insert(Command::new(it, ""));
