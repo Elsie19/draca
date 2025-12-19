@@ -140,8 +140,7 @@ impl Parse {
     fn bool(input: Node) -> Result<Expression> {
         Ok(Expression::Bool(match input.as_str() {
             "#t" => true,
-            "#f" => false,
-            _ => unreachable!("Should be defined in grammar.pest"),
+            "#f" | _ => false,
         }))
     }
 

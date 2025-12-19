@@ -117,7 +117,7 @@ mod test {
         let mut env = env.lock().unwrap();
         let list = lisp!("(list 1 2 3)", &mut env);
 
-        assert_eq!(super::car(&[list]).unwrap(), Expression::Number(1.0));
+        assert_eq!(super::car(&[list]).unwrap(), num!(1.0));
     }
 
     #[test]
