@@ -29,72 +29,73 @@ pub(crate) fn eval_expr(expr: Expression, env: &mut Environment) -> Result<Expre
 }
 
 pub(crate) fn eval_list(list: &[Expression], env: &mut Environment) -> Result<Expression, String> {
-    let first = &list[0];
+    let Expression::Symbol(head) = &list[0] else {
+        eprintln!("{:?}", list[0]);
+        return Err("Expected a symbol".into());
+    };
 
-    if let Expression::Symbol(s) = first {
-        match s.as_str() {
-            "define" => eval_define(list, env),
-            "define/in-namespace" => eval_define_namespace(list, env),
-            "namespace/symbol" => eval_symbol_namespace(list, env),
-            "namespace/as-list" => eval_symbol_namespace_as_list(list, env),
-            "quote" => eval_quote(list, env),
-            "eval-file" => eval_file(list, env),
-            "require" => eval_require(list, env),
-            "deconst-fn" => eval_deconst_fn(list, env),
-            "if" => eval_if(list, env),
-            "let" => eval_let(list, env),
-            "lambda" => eval_lambda(list, env),
-            _ => {
-                if let Some(exp) = env.get(s) {
-                    match exp {
-                        Expression::Func(f) => {
-                            let function = *f;
-                            let args: Result<Vec<Expression>, String> = list[1..]
-                                .iter()
-                                .map(|x| eval_expr(x.clone(), env))
-                                .collect();
-                            function(&args?)
-                        }
-                        Expression::Function(proc) => {
-                            let env_clone = &mut env.clone();
+    match head.as_str() {
+        "define" => eval_define(list, env),
+        "define/in-namespace" => eval_define_namespace(list, env),
+        "namespace/symbol" => eval_symbol_namespace(list, env),
+        "namespace/as-list" => eval_symbol_namespace_as_list(list, env),
+        "quote" => eval_quote(list, env),
+        "eval-file" => eval_file(list, env),
+        "require" => eval_require(list, env),
+        "deconst-fn" => eval_deconst_fn(list, env),
+        "if" => eval_if(list, env),
+        "let" => eval_let(list, env),
+        "lambda" => eval_lambda(list, env),
+        _ => apply_function(head, &list[1..], env),
+    }
+}
 
-                            let args: Result<Vec<Expression>, String> = list[1..]
-                                .iter()
-                                .map(|x| eval_expr(x.clone(), env_clone))
-                                .collect();
+fn apply_function(
+    name: &str,
+    args: &[Expression],
+    env: &mut Environment,
+) -> Result<Expression, String> {
+    let Some(exp) = &env.get(name).cloned() else {
+        return Err(format!("Undefined function: {name}"));
+    };
 
-                            // Create a new execution environment for the function
-                            let mut local_env = proc.env.clone();
+    match exp {
+        Expression::Func(func) => {
+            let args = args
+                .iter()
+                .map(|e| eval_expr(e.clone(), env))
+                .collect::<Result<Vec<_>, _>>()?;
 
-                            // Insert the function name into the new environment
-                            local_env.insert(NamespaceItem::from_str(s), exp.clone());
-
-                            for (param, arg) in proc.params.iter().zip(args?) {
-                                if let Expression::Symbol(param_name) = param {
-                                    local_env.insert(NamespaceItem::from_str(param_name), arg);
-                                } else {
-                                    return Err("Invalid parameter name".into());
-                                }
-                            }
-
-                            let mut result = Expression::Bool(false);
-
-                            for exp in proc.body.clone() {
-                                result = eval_expr(exp.clone(), &mut local_env)?;
-                            }
-
-                            Ok(result)
-                        }
-                        _ => Err(format!("Undefined function: {s}")),
-                    }
-                } else {
-                    Err(format!("Undefined function: {s}"))
-                }
-            }
+            func(&args)
         }
-    } else {
-        eprintln!("{:?}", first);
-        Err("Expected a symbol".into())
+
+        Expression::Function(proc) => {
+            let mut arg_env = env.clone();
+
+            let args = args
+                .iter()
+                .map(|e| eval_expr(e.clone(), &mut arg_env))
+                .collect::<Result<Vec<_>, _>>()?;
+
+            let mut local_env = proc.env.clone();
+            local_env.insert(NamespaceItem::from_str(name), exp.clone());
+
+            for (param, arg) in proc.params.iter().zip(args) {
+                let Expression::Symbol(p) = param else {
+                    return Err("Invalid parameter name".into());
+                };
+                local_env.insert(NamespaceItem::from_str(p), arg);
+            }
+
+            let mut result = Expression::Bool(false);
+            for expr in &proc.body {
+                result = eval_expr(expr.clone(), &mut local_env)?;
+            }
+
+            Ok(result)
+        }
+
+        _ => Err(format!("Undefined function: {name}")),
     }
 }
 
@@ -103,30 +104,29 @@ fn eval_define(list: &[Expression], env: &mut Environment) -> Result<Expression,
         return Err("`define` requires at least two arguments".into());
     }
 
-    if let Expression::List(func) = list.get(1).unwrap() {
-        if let Some(Expression::Symbol(func_name)) = func.first() {
-            let params = func[1..].to_vec();
-            let body = list.get(2..).ok_or("Invalid define syntax")?.to_vec();
+    match &list[1] {
+        Expression::List(func) => {
+            let Some(Expression::Symbol(name)) = func.first() else {
+                return Err("Invalid define syntax".into());
+            };
 
             let proc = Procedure {
-                params,
-                body,
+                params: func[1..].to_vec(),
+                body: list[2..].to_vec(),
                 env: env.clone(),
             };
 
-            let function = Expression::Function(proc);
-
-            env.insert(NamespaceItem::from_str(func_name), function);
-            Ok(Expression::Symbol(func_name.clone()))
-        } else {
-            Err("Invalid define syntax".into())
+            env.insert(NamespaceItem::from_str(name), Expression::Function(proc));
+            Ok(Expression::Symbol(name.clone()))
         }
-    } else if let Expression::Symbol(var_name) = list.get(1).unwrap() {
-        let value = eval_expr(list[2].clone(), env)?;
-        env.insert(NamespaceItem::from_str(var_name), value.clone());
-        Ok(Expression::Symbol(var_name.clone()))
-    } else {
-        Err("Invalid define syntax".into())
+
+        Expression::Symbol(name) => {
+            let value = eval_expr(list[2].clone(), env)?;
+            env.insert(NamespaceItem::from_str(name), value);
+            Ok(Expression::Symbol(name.clone()))
+        }
+
+        _ => Err("Invalid define syntax".into()),
     }
 }
 
@@ -135,82 +135,56 @@ fn eval_define_namespace(list: &[Expression], env: &mut Environment) -> Result<E
         return Err("`define/in-namespace` requires at least two arguments".into());
     }
 
-    if let Expression::List(func) = list.get(1).unwrap() {
-        if let Some(Expression::Symbol(func_name)) = func.first() {
-            let params = func[1..].to_vec();
-            let body = list.get(2..).ok_or("Invalid define syntax")?.to_vec();
+    match &list[1] {
+        Expression::List(_) => eval_define(list, env),
 
-            let proc = Procedure {
-                params,
-                body,
-                env: env.clone(),
-            };
+        Expression::Symbol(name) => {
+            let ns = NamespaceItem::from(name.as_str());
+            let mut inner_env = env.clone().with_scope(ns.frags());
+            let rhs = list[2].clone();
 
-            let function = Expression::Function(proc);
+            if let Expression::List(items) = &rhs
+                && matches!(items.first(), Some(Expression::Symbol(s)) if s == "define")
+                && matches!(items.get(1), Some(Expression::List(_)))
+            {
+                let mut rewritten = items.clone();
+                if let Expression::List(head) = &mut rewritten[1] {
+                    head[0] = Expression::Symbol(name.clone());
+                }
 
-            env.insert(NamespaceItem::from_str(func_name), function);
-            Ok(Expression::Symbol(func_name.clone()))
-        } else {
-            Err("Invalid define syntax".into())
-        }
-    } else if let Expression::Symbol(var_name) = list.get(1).unwrap() {
-        let namespace = NamespaceItem::from(var_name.as_str());
-        let mut inner_env = env.clone().with_scope(namespace.frags());
+                eval_define(&rewritten, &mut inner_env)?;
 
-        let rhs = list[2].clone();
+                if let Some(bound) = inner_env.get(name) {
+                    env.insert(ns, bound.clone());
+                    return Ok(Expression::Symbol(name.clone()));
+                }
 
-        // If the right-hand side begins with `define`, treat it as a definition
-        // TODO: Figure out wtf to do for things besides define.
-        if let Expression::List(items) = &rhs
-            && let Some(Expression::Symbol(s)) = items.first()
-            && s == "define"
-            && let Expression::List(func_head) = &items[1]
-        {
-            let mut new_head = func_head.clone();
-
-            new_head[0] = Expression::Symbol(var_name.clone());
-
-            let mut rewritten = vec![
-                Expression::Symbol("define".into()),
-                Expression::List(new_head),
-            ];
-            rewritten.extend_from_slice(&items[2..]);
-
-            let _ = eval_define(&rewritten, &mut inner_env)?;
-
-            if let Some(bound) = inner_env.get(var_name) {
-                env.insert(namespace, bound.clone());
-                return Ok(Expression::Symbol(var_name.clone()));
+                return Err(format!("Inner define made no binding for {name}"));
             }
 
-            return Err(format!("Inner define made no binding for {var_name}"));
+            let value = eval_expr(rhs, &mut inner_env)?;
+            env.insert(ns, value);
+            Ok(Expression::Symbol(name.clone()))
         }
 
-        let value = eval_expr(rhs, &mut inner_env)?;
-        env.insert(namespace, value.clone());
-        Ok(Expression::Symbol(var_name.clone()))
-    } else {
-        Err("Invalid define syntax".into())
+        _ => Err("Invalid define syntax".into()),
     }
 }
 
 fn eval_symbol_namespace(list: &[Expression], env: &mut Environment) -> Result<Expression, String> {
     let expr = &list[1];
 
-    if let Expression::Symbol(sym) = expr {
-        return Ok(env
-            .get_namespace_str(sym)
-            .map_or(Expression::Bool(false), Expression::Symbol));
-    }
+    let sym = match expr {
+        Expression::Symbol(s) => Some(s.clone()),
+        _ => match eval_expr(expr.clone(), env)? {
+            Expression::Symbol(s) => Some(s),
+            _ => None,
+        },
+    };
 
-    let evaled = eval_expr(expr.clone(), env)?;
-
-    match evaled {
-        Expression::Symbol(sym) => Ok(env
-            .get_namespace_str(&sym)
-            .map_or(Expression::Bool(false), Expression::Symbol)),
-        _ => Ok(Expression::Bool(false)),
-    }
+    Ok(sym
+        .and_then(|s| env.get_namespace_str(&s))
+        .map_or(Expression::Bool(false), Expression::Symbol))
 }
 
 fn eval_symbol_namespace_as_list(
@@ -230,105 +204,80 @@ fn eval_quote(list: &[Expression], _env: &mut Environment) -> Result<Expression,
 }
 
 fn eval_require(list: &[Expression], env: &mut Environment) -> Result<Expression, String> {
-    match list {
-        [_, path] => match path {
-            Expression::Symbol(sym) => {
-                env.add_scope(Namespace::from_str(sym));
-                Ok(Expression::Bool(true))
-            }
-            _ => Err("Expected symbol".into()),
-        },
-        _ => Err("`require` requires at least 1 argument".into()),
-    }
+    let [_, Expression::Symbol(sym)] = list else {
+        return Err("`require` requires at least 1 symbol argument".into());
+    };
+
+    env.add_scope(Namespace::from_str(sym));
+    Ok(Expression::Bool(true))
 }
 
 fn eval_deconst_fn(list: &[Expression], env: &mut Environment) -> Result<Expression, String> {
-    match list {
-        [_, func] => {
-            if let Expression::Symbol(func) = func {
-                match env.get(func) {
-                    Some(got) => {
-                        println!("{}", got);
-                        Ok(Expression::Bool(true))
-                    }
-                    None => Err("Could not find symbol".into()),
-                }
-            } else {
-                Err("`deconst-fn` requires a symbol".into())
-            }
+    let [_, Expression::Symbol(name)] = list else {
+        return Err("`deconst-fn` requires a symbol".into());
+    };
+
+    match env.get(name) {
+        Some(v) => {
+            println!("{v}");
+            Ok(Expression::Bool(true))
         }
-        _ => Err("`deconst-fn` requires at least 1 argument".into()),
+        None => Err("Could not find symbol".into()),
     }
 }
 
 fn eval_file(list: &[Expression], env: &mut Environment) -> Result<Expression, String> {
-    match list {
-        [_, path] => {
-            if let Expression::Symbol(path) = path {
-                let contents = fs::read_to_string(path).unwrap_or(String::from("()"));
-                let parsed_list = match crate::parser::parse(&contents) {
-                    Ok(val) => val,
-                    Err(e) => {
-                        eprintln!("{:?}", e);
-                        std::process::exit(1);
-                    }
-                };
+    let [_, Expression::Symbol(path)] = list else {
+        return Err("`eval-file` requires a symbol".into());
+    };
 
-                let mut retxpr = Ok(Expression::Bool(true));
+    let contents = fs::read_to_string(path).unwrap_or_else(|_| "()".into());
+    let parsed = crate::parser::parse(&contents).map_err(|e| {
+        eprintln!("{e:?}");
+        String::from("Parsing failed")
+    })?;
 
-                for expr in parsed_list {
-                    retxpr = eval(expr, env);
-                }
-
-                retxpr
-            } else {
-                Err("eval-files requires a symbol".into())
-            }
-        }
-        _ => Err("`eval-file` requires at least 1 argument".into()),
+    let mut result = Expression::Bool(true);
+    for expr in parsed {
+        result = eval(expr, env)?;
     }
+
+    Ok(result)
 }
 
 fn eval_if(list: &[Expression], env: &mut Environment) -> Result<Expression, String> {
-    match list {
-        [_, condition, then, else_] => match eval_expr(condition.clone(), env)? {
-            Expression::Bool(true) => eval_expr(then.clone(), env),
-            Expression::Bool(false) => eval_expr(else_.clone(), env),
-            _ => Err("Invalid condition in if expression".into()),
-        },
-        _ => Err("`if` requires at least three arguments".into()),
+    let [_, cond, then_, else_] = list else {
+        return Err("`if` requires three arguments".into());
+    };
+
+    match eval_expr(cond.clone(), env)? {
+        Expression::Bool(true) => eval_expr(then_.clone(), env),
+        Expression::Bool(false) => eval_expr(else_.clone(), env),
+        _ => Err("Invalid condition in if expression".into()),
     }
 }
 
 fn eval_let(list: &[Expression], env: &mut Environment) -> Result<Expression, String> {
-    if list.len() < 3 {
-        return Err("`let` requires bindings and a body".into());
-    }
-
-    let bindings = match &list[1] {
-        Expression::List(b) => b,
-        _ => return Err("`let` bindings must be a list".into()),
+    let Expression::List(bindings) = &list[1] else {
+        return Err("`let` bindings must be a list".into());
     };
 
     let mut local_env = env.clone();
 
     for binding in bindings {
-        match binding {
-            Expression::List(pair) if pair.len() == 2 => {
-                let name = match &pair[0] {
-                    Expression::Symbol(s) => s,
-                    _ => return Err("`let` binding name must be a symbol".into()),
-                };
+        let Expression::List(pair) = binding else {
+            return Err("Invalid `let` binding".into());
+        };
 
-                let value = eval_expr(pair[1].clone(), env)?;
-                local_env.insert(NamespaceItem::from_str(name), value);
-            }
-            _ => return Err("Invalid `let` binding".into()),
-        }
+        let [Expression::Symbol(name), value] = &pair[..] else {
+            return Err("Invalid `let` binding".into());
+        };
+
+        let val = eval_expr(value.clone(), env)?;
+        local_env.insert(NamespaceItem::from_str(name), val);
     }
 
     let mut result = Expression::Bool(false);
-
     for expr in &list[2..] {
         result = eval_expr(expr.clone(), &mut local_env)?;
     }
