@@ -136,36 +136,69 @@ fn eval_define_namespace(list: &[Expression], env: &mut Environment) -> Result<E
     match &list[1] {
         Expression::List(_) => eval_define(list, env),
 
-        Expression::Symbol(name) => {
-            let ns = NamespaceItem::from(name.as_str());
-            let mut inner_env = env.clone().with_scope(ns.frags());
-            let rhs = list[2].clone();
+        // Namespace form
+        Expression::Symbol(ns_name) => {
+            let namespace = NamespaceItem::from(ns_name.as_str());
+            let mut inner_env = env.clone().with_scope(namespace.frags());
+            let rhs = &list[2];
 
-            if let Expression::List(items) = &rhs
-                && matches!(items.first(), Some(Expression::Symbol(s)) if s == "define")
-                && matches!(items.get(1), Some(Expression::List(_)))
-            {
-                let mut rewritten = items.clone();
-                if let Expression::List(head) = &mut rewritten[1] {
-                    head[0] = Expression::Symbol(name.clone());
-                }
+            // Must be a define
+            let Expression::List(items) = rhs else {
+                return Err("Expected define form inside define/in-namespace".into());
+            };
 
-                eval_define(&rewritten, &mut inner_env)?;
-
-                if let Some(bound) = inner_env.get(name) {
-                    env.insert(ns, bound.clone());
-                    return Ok(Expression::Symbol(name.clone()));
-                }
-
-                return Err(format!("Inner define made no binding for {name}"));
+            if !matches!(items.first(), Some(Expression::Symbol(s)) if s == "define") {
+                return Err("Expected define form inside define/in-namespace".into());
             }
 
-            let value = eval_expr(rhs, &mut inner_env)?;
-            env.insert(ns, value);
-            Ok(Expression::Symbol(name.clone()))
+            match items.get(1) {
+                // (define (name args...) ...)
+                Some(Expression::List(func_head)) => {
+                    let Some(Expression::Symbol(inner_name)) = func_head.first() else {
+                        return Err("Invalid inner define syntax".into());
+                    };
+
+                    let full_name = format!("{ns_name}::{inner_name}");
+                    let full_sym = NamespaceItem::from(full_name.as_str());
+
+                    // Rewrite define head with full name
+                    let mut rewritten = items.clone();
+                    if let Expression::List(head) = &mut rewritten[1] {
+                        head[0] = Expression::Symbol(full_name.clone());
+                    }
+
+                    eval_define(&rewritten, &mut inner_env)?;
+
+                    let Some(bound) = inner_env.get(&full_name) else {
+                        return Err(format!("Inner define made no binding for {full_name}"));
+                    };
+
+                    env.insert(full_sym, bound.clone());
+                    Ok(Expression::Symbol(full_name))
+                }
+
+                Some(Expression::Symbol(inner_name)) => {
+                    let full_name = format!("{ns_name}::{inner_name}");
+                    let full_sym = NamespaceItem::from(full_name.as_str());
+
+                    let mut rewritten = items.clone();
+                    rewritten[1] = Expression::Symbol(full_name.clone());
+
+                    eval_define(&rewritten, &mut inner_env)?;
+
+                    let Some(bound) = inner_env.get(&full_name) else {
+                        return Err(format!("Inner define made no binding for {full_name}"));
+                    };
+
+                    env.insert(full_sym, bound.clone());
+                    Ok(Expression::Symbol(full_name))
+                }
+
+                _ => Err("Invalid inner define syntax".into()),
+            }
         }
 
-        _ => Err("Invalid define syntax".into()),
+        _ => Err("Invalid define/in-namespace syntax".into()),
     }
 }
 

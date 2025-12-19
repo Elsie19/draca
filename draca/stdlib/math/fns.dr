@@ -1,14 +1,14 @@
-(define/in-namespace std::math::fns::abs
+(define/in-namespace std::math::fns
     (define (abs x)
         (if (< x 0)
             (- x)
             x)))
 
-(define/in-namespace std::math::fns::square
+(define/in-namespace std::math::fns
     (define (square x)
         (* x x)))
 
-(define/in-namespace std::math::fns::fact
+(define/in-namespace std::math::fns
     (define (fact n)
         (if (<= n 1)
             1

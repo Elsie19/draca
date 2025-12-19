@@ -24,5 +24,3 @@ Instead of:
 43
 \>
 ```
-
-`define/in-namespace` should detect `define` and append the function name to the namespace.

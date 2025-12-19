@@ -1,4 +1,4 @@
-(define/in-namespace std::list::rev
+(define/in-namespace std::list
     (define (rev lst)
         (if (empty? lst)
         lst

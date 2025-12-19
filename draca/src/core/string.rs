@@ -21,9 +21,9 @@ pub fn from_list(args: &[Expression]) -> Result<Expression, String> {
     match args {
         [first, ..] => {
             let lst = extract_list(first)?;
-            Ok(Expression::String(String::from_iter(
-                lst.iter().map(Expression::fmt_string),
-            )))
+            Ok(Expression::String(
+                lst.iter().map(Expression::fmt_string).collect(),
+            ))
         }
         _ => Err("`list->string` requires one argument".into()),
     }
