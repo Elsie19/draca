@@ -40,8 +40,8 @@ pub(crate) fn eval_list(list: &[Expression], env: &mut Environment) -> Result<Ex
         "define" => eval_define(args_sans_head, env),
         "define/in-namespace" => eval_define_namespace(args_sans_head, env),
         "namespace/symbol" => eval_symbol_namespace(args_sans_head, env),
-        "namespace/as-list" => eval_symbol_namespace_as_list(env),
-        "quote" => eval_quote(args_sans_head),
+        "namespace/as-list" => Ok(eval_symbol_namespace_as_list(env)),
+        "quote" => Ok(eval_quote(args_sans_head)),
         "eval-file" => eval_file(args_sans_head, env),
         "require" => eval_require(args_sans_head, env),
         "deconst-fn" => eval_deconst_fn(args_sans_head, env),
@@ -216,17 +216,17 @@ fn eval_symbol_namespace(list: &[Expression], env: &mut Environment) -> Result<E
         .map_or(Expression::Bool(false), Expression::Symbol))
 }
 
-fn eval_symbol_namespace_as_list(env: &mut Environment) -> Result<Expression, String> {
-    Ok(Expression::List(
+fn eval_symbol_namespace_as_list(env: &mut Environment) -> Expression {
+    Expression::List(
         env.scopes()
             .iter()
             .map(|n| Expression::Symbol(n.to_string()))
             .collect(),
-    ))
+    )
 }
 
-fn eval_quote(list: &[Expression]) -> Result<Expression, String> {
-    Ok(list[0].clone())
+fn eval_quote(list: &[Expression]) -> Expression {
+    list[0].clone()
 }
 
 fn eval_require(list: &[Expression], env: &mut Environment) -> Result<Expression, String> {
@@ -312,26 +312,24 @@ fn eval_let(list: &[Expression], env: &mut Environment) -> Result<Expression, St
 }
 
 fn eval_lambda(list: &[Expression], env: &mut Environment) -> Result<Expression, String> {
-    if list.len() < 2 {
-        return Err("`lambda` requires parameters and a body".into());
-    }
+    match list {
+        [params, body @ ..] => {
+            let params = match params {
+                Expression::List(p) => p.clone(),
+                _ => return Err("`lambda` parameter list must be a list".into()),
+            };
+            for param in &params {
+                if !matches!(param, Expression::Symbol(_)) {
+                    return Err("`lambda` parameters must be symbols".into());
+                }
+            }
 
-    let params = match &list[0] {
-        Expression::List(p) => p.clone(),
-        _ => return Err("`lambda` parameter list must be a list".into()),
-    };
-
-    for param in &params {
-        if !matches!(param, Expression::Symbol(_)) {
-            return Err("`lambda` parameters must be symbols".into());
+            Ok(Expression::Function(Procedure {
+                params,
+                body: body.to_vec(),
+                env: env.clone(),
+            }))
         }
+        _ => Err("`lambda` requires parameters and a body".into()),
     }
-
-    let body = list[1..].to_vec();
-
-    Ok(Expression::Function(Procedure {
-        params,
-        body,
-        env: env.clone(),
-    }))
 }
