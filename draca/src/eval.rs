@@ -70,11 +70,9 @@ fn apply_function(
         }
 
         Expression::Function(proc) => {
-            let mut arg_env = env.clone();
-
             let args = args
                 .iter()
-                .map(|e| eval_expr(e.clone(), &mut arg_env))
+                .map(|e| eval_expr(e.clone(), env))
                 .collect::<Result<Vec<_>, _>>()?;
 
             let mut local_env = proc.env.clone();
