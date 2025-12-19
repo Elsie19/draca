@@ -3,10 +3,6 @@ use crate::parser::Expression;
 macro_rules! binary_op {
     ($name:ident, $op:tt) => {
         pub fn $name(args: &[Expression]) -> Result<Expression, String> {
-            if args.len() <= 1 {
-                return Err(format!("`{}` requires at least two arguments", stringify!($name)));
-            }
-
             match args {
                 [first, second] => {
                     if let Expression::Number(first) = first && let Expression::Number(second) = second {
@@ -15,7 +11,7 @@ macro_rules! binary_op {
                         Err("invalid arguments, not numbers".into())
                     }
                 }
-                _ => unreachable!("Checked above"),
+                _ => Err(format!("`{}` requires at least two arguments", stringify!($name))),
             }
         }
     };
@@ -24,13 +20,6 @@ macro_rules! binary_op {
 macro_rules! method_op {
     ($name:ident, $op:tt) => {
         pub fn $name(args: &[Expression]) -> Result<Expression, String> {
-            if args.len() <= 1 {
-                return Err(format!(
-                    "`{}` requires at least two arguments",
-                    stringify!($name)
-                ));
-            }
-
             match args {
                 [first, second] => {
                     if let Expression::Number(first) = first
@@ -41,7 +30,10 @@ macro_rules! method_op {
                         Err("invalid arguments, not numbers".into())
                     }
                 }
-                _ => unreachable!("Checked above"),
+                _ => Err(format!(
+                    "`{}` requires at least two arguments",
+                    stringify!($name)
+                )),
             }
         }
     };
@@ -51,10 +43,6 @@ macro_rules! def_ops {
     ( $( ($name:ident, $op:tt) ),* $(,)? ) => {
         $(
             pub fn $name(args: &[Expression]) -> Result<Expression, String> {
-                if args.len() <= 1 {
-                    return Err(format!("`{}` requires at least two arguments", stringify!($name)));
-                }
-
                 match args {
                     [start, tail @ ..] => {
                         let mut base = if let Expression::Number(n) = start {
@@ -70,7 +58,7 @@ macro_rules! def_ops {
                         }
                         Ok(Expression::Number(base))
                     }
-                    _ => panic!("oops"),
+                    _ => Err(format!("`{}` requires at least two arguments", stringify!($name))),
                 }
             }
         )*
