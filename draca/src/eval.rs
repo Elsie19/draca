@@ -1,4 +1,4 @@
-use std::fs;
+use std::{borrow::Cow, fs};
 
 use crate::{
     env::{Environment, Namespace, NamespaceItem},
@@ -263,25 +263,25 @@ fn eval_quote(list: &[Expression]) -> Expression {
 }
 
 fn eval_require(list: &[Expression], env: &mut Environment) -> Result<Expression, String> {
-    let [Expression::Symbol(sym)] = list else {
-        return Err("`require` requires at least 1 symbol argument".into());
-    };
-
-    env.add_scope(Namespace::from_str(sym));
-    Ok(Expression::Bool(true))
+    match list {
+        [Expression::Symbol(sym)] => {
+            env.add_scope(Namespace::from_str(sym));
+            Ok(Expression::Bool(true))
+        }
+        _ => Err("`require` requires at least 1 symbol argument".into()),
+    }
 }
 
 fn eval_deconst_fn(list: &[Expression], env: &mut Environment) -> Result<Expression, String> {
-    let [Expression::Symbol(name)] = list else {
-        return Err("`deconst-fn` requires a symbol".into());
-    };
-
-    match env.get(name) {
-        Some(v) => {
-            println!("{v}");
-            Ok(Expression::Bool(true))
-        }
-        None => Err("Could not find symbol".into()),
+    match list {
+        [sym @ Expression::Symbol(name)] => match env.get(name) {
+            Some(v) => {
+                println!("{v}");
+                Ok(Expression::Quoted(Box::new(sym.clone())))
+            }
+            None => Err("Could not find symbol".into()),
+        },
+        _ => Err("`deconst-fn` requires a symbol".into()),
     }
 }
 
@@ -290,7 +290,10 @@ fn eval_file(list: &[Expression], env: &mut Environment) -> Result<Expression, S
         return Err("`eval-file` requires a symbol".into());
     };
 
-    let contents = fs::read_to_string(path).unwrap_or_else(|_| "()".into());
+    let contents: Cow<'_, str> = match fs::read_to_string(path) {
+        Ok(o) => Cow::Owned(o),
+        Err(_) => Cow::Borrowed("()"),
+    };
     let parsed = crate::parser::parse(&contents).map_err(|e| {
         eprintln!("{e:?}");
         String::from("Parsing failed")
