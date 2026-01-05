@@ -290,7 +290,7 @@ fn eval_file(list: &[Expression], env: &mut Environment) -> Result<Expression, S
         return Err("`eval-file` requires a symbol".into());
     };
 
-    let contents: Cow<'_, str> = match fs::read_to_string(path) {
+    let contents: Cow<'static, str> = match fs::read_to_string(path) {
         Ok(o) => Cow::Owned(o),
         Err(_) => Cow::Borrowed("()"),
     };
@@ -355,10 +355,11 @@ fn eval_lambda(list: &[Expression], env: &mut Environment) -> Result<Expression,
                 Expression::List(p) => p.clone(),
                 _ => return Err("`lambda` parameter list must be a list".into()),
             };
-            for param in &params {
-                if !matches!(param, Expression::Symbol(_)) {
-                    return Err("`lambda` parameters must be symbols".into());
-                }
+            if !params
+                .iter()
+                .all(|param| matches!(param, Expression::Symbol(_)))
+            {
+                return Err("`lambda` parameters must be symbols".into());
             }
 
             Ok(Expression::Function(Procedure {
