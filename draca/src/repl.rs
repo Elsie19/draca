@@ -212,7 +212,7 @@ pub fn repl() -> rustyline::Result<()> {
                     }
                 };
 
-                for expr in parsed_list {
+                for expr in &parsed_list {
                     match eval(expr, &mut env) {
                         Ok(val) => println!("{}", Style::new().dimmed().paint(val.to_string())),
                         Err(e) => eprintln!("==> Error: {e}"),

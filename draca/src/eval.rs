@@ -5,25 +5,25 @@ use crate::{
     parser::{Expression, Procedure},
 };
 
-pub fn eval(expr: Expression, env: &mut Environment) -> Result<Expression, String> {
+pub fn eval(expr: &Expression, env: &mut Environment) -> Result<Expression, String> {
     let evaluated_expression = eval_expr(expr, env)?;
 
     Ok(evaluated_expression)
 }
 
-pub(crate) fn eval_expr(expr: Expression, env: &mut Environment) -> Result<Expression, String> {
+pub(crate) fn eval_expr(expr: &Expression, env: &mut Environment) -> Result<Expression, String> {
     match expr {
         Expression::Bool(_)
         | Expression::Number(_)
         | Expression::Func(_)
         | Expression::Quoted(_) // Pass as is.
         | Expression::Nil
-        | Expression::String(_) => Ok(expr),
+        | Expression::String(_) => Ok(expr.clone()),
         Expression::Symbol(s) => env
-            .get(&s)
+            .get(s)
             .cloned()
             .ok_or_else(|| format!("Undefined symbol: {s}")),
-        Expression::List(list) => eval_list(&list, env),
+        Expression::List(list) => eval_list(list, env),
         Expression::Function(_) => Err("Unexpected function definition".into()),
     }
 }
@@ -53,10 +53,10 @@ pub(crate) fn eval_list(list: &[Expression], env: &mut Environment) -> Result<Ex
         }
         other => {
             // Head is not a symbol; evaluate it as a function expression
-            let func = eval_expr(other.clone(), env)?;
+            let func = eval_expr(other, env)?;
             let args = list[1..]
                 .iter()
-                .map(|e| eval_expr(e.clone(), env))
+                .map(|e| eval_expr(e, env))
                 .collect::<Result<Vec<_>, _>>()?;
 
             match func {
@@ -75,7 +75,7 @@ pub(crate) fn eval_list(list: &[Expression], env: &mut Environment) -> Result<Ex
                     // Evaluate body
                     let mut result = Expression::Bool(false);
                     for expr in &proc.body {
-                        result = eval_expr(expr.clone(), &mut local_env)?;
+                        result = eval_expr(expr, &mut local_env)?;
                     }
                     Ok(result)
                 }
@@ -98,7 +98,7 @@ fn apply_function(
         Expression::Func(func) => {
             let args = args
                 .iter()
-                .map(|e| eval_expr(e.clone(), env))
+                .map(|e| eval_expr(e, env))
                 .collect::<Result<Vec<_>, _>>()?;
 
             func(&args)
@@ -107,7 +107,7 @@ fn apply_function(
         Expression::Function(proc) => {
             let args = args
                 .iter()
-                .map(|e| eval_expr(e.clone(), env))
+                .map(|e| eval_expr(e, env))
                 .collect::<Result<Vec<_>, _>>()?;
 
             let mut local_env = proc.env.clone();
@@ -122,7 +122,7 @@ fn apply_function(
 
             let mut result = Expression::Bool(false);
             for expr in &proc.body {
-                result = eval_expr(expr.clone(), &mut local_env)?;
+                result = eval_expr(expr, &mut local_env)?;
             }
 
             Ok(result)
@@ -136,7 +136,7 @@ fn eval_define(list: &[Expression], env: &mut Environment) -> Result<Expression,
     match list {
         // (define name expr)
         [Expression::Symbol(name), expr] => {
-            let value = eval_expr(expr.clone(), env)?;
+            let value = eval_expr(expr, env)?;
             env.insert(NamespaceItem::from_str(name), value);
             Ok(Expression::Symbol(name.clone()))
         }
@@ -238,7 +238,7 @@ fn eval_symbol_namespace(list: &[Expression], env: &mut Environment) -> Result<E
 
     let sym = match expr {
         Expression::Symbol(s) => Some(s.clone()),
-        _ => match eval_expr(expr.clone(), env)? {
+        _ => match eval_expr(expr, env)? {
             Expression::Symbol(s) => Some(s),
             _ => None,
         },
@@ -301,7 +301,7 @@ fn eval_file(list: &[Expression], env: &mut Environment) -> Result<Expression, S
     })?;
 
     let mut result = Expression::Bool(true);
-    for expr in parsed {
+    for expr in &parsed {
         result = eval(expr, env)?;
     }
 
@@ -310,9 +310,9 @@ fn eval_file(list: &[Expression], env: &mut Environment) -> Result<Expression, S
 
 fn eval_if(list: &[Expression], env: &mut Environment) -> Result<Expression, String> {
     match list {
-        [cond, then_, else_] => match eval_expr(cond.clone(), env)? {
-            Expression::Bool(true) => eval_expr(then_.clone(), env),
-            Expression::Bool(false) => eval_expr(else_.clone(), env),
+        [cond, then_, else_] => match eval_expr(cond, env)? {
+            Expression::Bool(true) => eval_expr(then_, env),
+            Expression::Bool(false) => eval_expr(else_, env),
             _ => Err("Invalid condition in if expression".into()),
         },
         _ => Err("`if` requires three arguments".into()),
@@ -328,7 +328,7 @@ fn eval_let(list: &[Expression], env: &mut Environment) -> Result<Expression, St
                 match binding {
                     Expression::List(pair) => match &pair[..] {
                         [Expression::Symbol(name), value] => {
-                            let val = eval_expr(value.clone(), env)?;
+                            let val = eval_expr(value, env)?;
                             local_env.insert(NamespaceItem::from_str(name), val);
                         }
                         _ => return Err("Invalid `let` binding. Must be (`symbol` `value`)".into()),
@@ -339,7 +339,7 @@ fn eval_let(list: &[Expression], env: &mut Environment) -> Result<Expression, St
 
             let mut result = Expression::Bool(false);
             for expr in rest {
-                result = eval_expr(expr.clone(), &mut local_env)?;
+                result = eval_expr(expr, &mut local_env)?;
             }
 
             Ok(result)

@@ -324,7 +324,7 @@ impl Environment {
     pub fn stdlib(mut self) -> Self {
         let parsed_stdlib = parse(STDLIB.trim()).expect("stdlib is syntactically broken");
 
-        for expr in parsed_stdlib {
+        for expr in &parsed_stdlib {
             eval(expr, &mut self).expect("could not eval stdlib function");
         }
 
@@ -343,7 +343,7 @@ pub fn run_file(path: &str) -> Result<(), Box<dyn std::error::Error>> {
 
     let mut env = Environment::empty().core().stdlib().build();
 
-    for expr in parsed {
+    for expr in &parsed {
         eval(expr, &mut env)?;
     }
 
