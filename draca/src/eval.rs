@@ -294,6 +294,7 @@ fn eval_file(list: &[Expression], env: &mut Environment) -> Result<Expression, S
         Ok(o) => Cow::Owned(o),
         Err(_) => Cow::Borrowed("()"),
     };
+
     let parsed = crate::parser::parse(&contents).map_err(|e| {
         eprintln!("{e:?}");
         String::from("Parsing failed")

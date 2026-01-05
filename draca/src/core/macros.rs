@@ -20,7 +20,7 @@ pub fn format(args: &[Expression]) -> Result<Expression, String> {
 
             let fmted_args = rest.iter().map(Expression::fmt_string);
 
-            let mut vars = HashMap::new();
+            let mut vars = HashMap::with_capacity(fmted_args.len());
 
             for (idx, arg) in fmted_args.enumerate() {
                 vars.insert(idx, arg);
@@ -35,9 +35,9 @@ pub fn format(args: &[Expression]) -> Result<Expression, String> {
 }
 
 pub fn println(args: &[Expression]) -> Result<Expression, String> {
-    let out = format(args)?;
+    let out = format(args)?.fmt_string();
 
-    println!("{}", out.fmt_string());
+    println!("{}", out);
 
-    Ok(Expression::Bool(true))
+    Ok(Expression::Number(out.len() as f64))
 }

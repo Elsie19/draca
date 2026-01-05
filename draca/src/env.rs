@@ -322,10 +322,10 @@ impl Environment {
     }
 
     pub fn stdlib(mut self) -> Self {
-        let parsed_stdlib = parse(STDLIB.trim()).expect("stdlib is broken");
+        let parsed_stdlib = parse(STDLIB.trim()).expect("stdlib is syntactically broken");
 
         for expr in parsed_stdlib {
-            let _ = eval(expr, &mut self);
+            eval(expr, &mut self).expect("could not eval stdlib function");
         }
 
         self
